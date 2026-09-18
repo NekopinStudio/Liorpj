@@ -1,5 +1,5 @@
 /* =========================================================
-   LIOR KUROGANE — MOTOR DINÁMICO D&D 5E & SUPABASE
+   LIOR KUROGANE — MOTOR COMPLETO D&D 5E & SUPABASE
 ========================================================= */
 
 const SUPABASE_URL = "https://zfuwwtjjamxhpzukbaaa.supabase.co";
@@ -64,8 +64,14 @@ const state = {
   pourcoonMaxHp: 9,
   deaths: 4,
   stampRotations: {},
-  combat: { hexblade_curse_active: false, elemental_weapon_active: false },
-  noteFilter: 'all',
+  deathSuccesses: 0,
+  deathFailures: 0,
+  healingHandsUsed: false,
+  combat: {
+    hexblade_curse_active: false,
+    elemental_weapon_active: false
+  },
+  noteFilter: "all",
   activeModalSpell: null
 };
 
@@ -75,55 +81,9 @@ function calcMod(score) { return Math.floor(((Number(score) || 10) - 10) / 2); }
 function signed(num) { const n = Number(num) || 0; return n >= 0 ? `+${n}` : `${n}`; }
 function calcProf(level) { return Math.floor(((Number(level) || 1) - 1) / 4) + 2; }
 function escapeHTML(str) { return String(str ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
+function safeSetText(id, val) { const el = $(id); if (el) el.textContent = val; }
 
-/* SÍNTESIS DE AUDIO: GRITO DE CELEBRACIÓN (WEB AUDIO API) */
-function playVictoryCheer() {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-
-    // Tonos de fanfarria alegre en arpegio rápido ascendente
-    const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
-    notes.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
-
-      gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.08);
-      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + idx * 0.08 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.4);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(ctx.currentTime + idx * 0.08);
-      osc.stop(ctx.currentTime + idx * 0.08 + 0.45);
-    });
-
-    // Modulación que emula el grito ("¡Yaaay!")
-    const cheerOsc = ctx.createOscillator();
-    const cheerGain = ctx.createGain();
-    cheerOsc.type = 'sawtooth';
-    cheerOsc.frequency.setValueAtTime(600, ctx.currentTime + 0.35);
-    cheerOsc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.7);
-
-    cheerGain.gain.setValueAtTime(0, ctx.currentTime + 0.35);
-    cheerGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.45);
-    cheerGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.95);
-
-    cheerOsc.connect(cheerGain);
-    cheerGain.connect(ctx.destination);
-    cheerOsc.start(ctx.currentTime + 0.35);
-    cheerOsc.stop(ctx.currentTime + 1.0);
-  } catch (err) {
-    console.warn("Audio no disponible:", err);
-  }
-}
-
-/* NAVEGACIÓN ENTRE PESTAÑAS */
+/* NAVEGACIÓN */
 function setupTabs() {
   document.querySelectorAll(".sheet-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -134,6 +94,39 @@ function setupTabs() {
       $(target)?.classList.add("active");
     });
   });
+}
+
+/* AUDIO CELEBRACIÓN GRUNT */
+function playGruntCheer() {
+  try {
+    const audio = new Audio("https://www.myinstants.com/media/sounds/grunt-birthday-party.mp3");
+    audio.volume = 0.85;
+    audio.play().catch(() => playSynthCheer());
+  } catch (e) {
+    playSynthCheer();
+  }
+}
+
+function playSynthCheer() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const notes = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99];
+    notes.forEach((freq, idx) => {
+      const start = ctx.currentTime + idx * 0.04;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.18, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.85);
+    });
+  } catch (err) {}
 }
 
 /* CARGA INICIAL */
@@ -157,7 +150,13 @@ async function loadAll() {
   };
 
   try {
-    const { data } = await db.from("characters").select("*").eq("name", "Lior Kurogane").maybeSingle();
+    const { data, error } = await db
+      .from("characters")
+      .select("*")
+      .eq("name", "Lior Kurogane")
+      .maybeSingle();
+
+    if (error) throw error;
     if (data) {
       state.character = { ...state.character, ...data };
       state.character.max_hp = data.max_hp ?? 48;
@@ -166,7 +165,7 @@ async function loadAll() {
       state.spellSlots = data.spell_slots_level_3 ?? 2;
     }
   } catch (err) {
-    console.warn("Usando datos locales:", err);
+    console.warn("Usando respaldo local:", err);
   }
 
   state.equipment = [
@@ -192,23 +191,136 @@ async function loadAll() {
   renderAll();
 }
 
-/* TARJETA DE FIDELIDAD DE MUERTES (10 SELLOS CON LOGO Y CELEBRACIÓN) */
+/* =========================================================
+   PUNTOS DE GOLPE
+========================================================= */
+function updateHPUI() {
+  if (!state.character) return;
+  const cur = Number(state.character.current_hp);
+  const max = Number(state.character.max_hp) || 48;
+
+  safeSetText("hpValue", `${cur} / ${max}`);
+  const bar = $("hpBar");
+  if (bar) {
+    const percentage = Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
+    bar.style.width = `${percentage}%`;
+  }
+}
+
+async function modifyHP(delta) {
+  if (!state.character) return;
+  const current = Number(state.character.current_hp) || 0;
+  const max = Number(state.character.max_hp) || 48;
+  const next = Math.max(0, Math.min(max, current + delta));
+
+  state.character.current_hp = next;
+  updateHPUI();
+
+  try {
+    await db.from("characters").update({ current_hp: next }).eq("name", "Lior Kurogane");
+  } catch (e) {
+    console.warn("Guardado local de PV:", e);
+  }
+}
+
+/* =========================================================
+   DEATH SAVES
+========================================================= */
+function renderDeathSaves() {
+  for (let i = 1; i <= 3; i++) {
+    const succ = $(`succ_${i}`);
+    const fail = $(`fail_${i}`);
+    if (succ) succ.classList.toggle("filled", i <= state.deathSuccesses);
+    if (fail) fail.classList.toggle("filled", i <= state.deathFailures);
+  }
+}
+
+window.toggleDeathDot = function(type, index) {
+  if (type === 'success') {
+    state.deathSuccesses = (state.deathSuccesses === index) ? index - 1 : index;
+  } else {
+    state.deathFailures = (state.deathFailures === index) ? index - 1 : index;
+  }
+  renderDeathSaves();
+  checkDeathSavesCondition();
+};
+
+window.resetDeathSaves = function() {
+  state.deathSuccesses = 0;
+  state.deathFailures = 0;
+  renderDeathSaves();
+};
+
+window.rollDeathSave = function() {
+  if (state.deathSuccesses >= 3 || state.deathFailures >= 3) {
+    alert("Las tiradas de salvación contra muerte ya terminaron. Usa 'Limpiar' para reiniciar.");
+    return;
+  }
+
+  const d20 = Math.floor(Math.random() * 20) + 1;
+  const box = $("rollResultBox");
+  if (box) box.style.display = "block";
+
+  safeSetText("rollSkillTitle", "SALVACIÓN CONTRA LA MUERTE");
+
+  if (d20 === 20) {
+    state.character.current_hp = 1;
+    state.deathSuccesses = 0;
+    state.deathFailures = 0;
+    updateHPUI();
+    renderDeathSaves();
+    safeSetText("rollMath", "¡20 NATURAL!");
+    safeSetText("rollDetail", "¡Milagro! Recuperas la consciencia inmediatamente con 1 PV.");
+    return;
+  } else if (d20 === 1) {
+    state.deathFailures = Math.min(3, state.deathFailures + 2);
+    safeSetText("rollMath", "¡PIFIA! (1 Natural)");
+    safeSetText("rollDetail", "Fallo crítico: Recibes 2 fallos automáticos.");
+  } else if (d20 >= 10) {
+    state.deathSuccesses = Math.min(3, state.deathSuccesses + 1);
+    safeSetText("rollMath", `Éxito (${d20})`);
+    safeSetText("rollDetail", "Tirada de 10 o superior: Sumas 1 éxito.");
+  } else {
+    state.deathFailures = Math.min(3, state.deathFailures + 1);
+    safeSetText("rollMath", `Fallo (${d20})`);
+    safeSetText("rollDetail", "Tirada de 9 o inferior: Sumas 1 fallo.");
+  }
+
+  renderDeathSaves();
+  checkDeathSavesCondition();
+};
+
+function checkDeathSavesCondition() {
+  if (state.deathSuccesses >= 3) {
+    alert("✨ ¡Estabilizado! Has acumulado 3 éxitos. Tu personaje está seguro a 0 PV.");
+  } else if (state.deathFailures >= 3) {
+    alert("☠ Has acumulado 3 fallos: Lior ha muerto. Se añadirá un sello a tu Tarjeta de Lealtad.");
+    window.toggleDeathStamp(Math.min(10, state.deaths + 1));
+    state.deathSuccesses = 0;
+    state.deathFailures = 0;
+    renderDeathSaves();
+  }
+}
+
+/* =========================================================
+   TARJETA DE FIDELIDAD DE MUERTES
+========================================================= */
 function renderLoyaltyCard() {
   const container = $("loyaltySlotsContainer");
-  $("deathLoyaltyCount").textContent = state.deaths;
-  
+  if (!container) return;
+
+  safeSetText("deathLoyaltyCount", state.deaths);
+
   let html = "";
   for (let i = 1; i <= 10; i++) {
     const isStamped = i <= state.deaths;
-    
     if (isStamped && !state.stampRotations[i]) {
       state.stampRotations[i] = Math.floor(Math.random() * 91) - 45;
     }
-
     const rot = state.stampRotations[i] || 0;
 
     html += `
-      <div class="loyalty-slot" onclick="toggleDeathStamp(${i})">
+      <div class="loyalty-slot" onclick="toggleDeathStamp(${i})" title="Sello ${i}">
         ${isStamped 
           ? `<img src="logo.png" class="stamp-img" style="transform: rotate(${rot}deg);" alt="Sello">` 
           : `<span class="slot-number">${i}</span>`}
@@ -230,10 +342,10 @@ window.toggleDeathStamp = async function(slotNum) {
   renderLoyaltyCard();
 
   if (state.deaths === 10) {
-    playVictoryCheer();
-    if (typeof confetti === 'function') {
+    playGruntCheer();
+    if (typeof confetti === "function") {
       confetti({
-        particleCount: 140,
+        particleCount: 150,
         spread: 90,
         origin: { y: 0.6 }
       });
@@ -243,33 +355,42 @@ window.toggleDeathStamp = async function(slotNum) {
   try {
     await db.from("characters").update({ deaths: state.deaths }).eq("name", "Lior Kurogane");
   } catch (e) {
-    console.warn("Guardado local de muertes:", e);
+    console.warn("Guardado local muertes:", e);
   }
 };
 
-/* CÁLCULO DE CA */
-function calculateAC() {
+/* =========================================================
+   CA CON DESGLOSE
+========================================================= */
+function calculateACDetails() {
   const dexMod = calcMod(state.character.dexterity);
   const equippedArmor = state.equipment.find(i => i.type === 'armor' && i.location === 'equipped');
   const equippedShield = state.equipment.find(i => i.type === 'shield' && i.location === 'equipped');
 
-  let baseAC = 10 + dexMod;
+  let totalAC = 10 + dexMod;
+  let breakdown = `Base 10 + DES (${signed(dexMod)})`;
 
   if (equippedArmor) {
     const allowedDex = equippedArmor.maxDex !== undefined ? Math.min(dexMod, equippedArmor.maxDex) : dexMod;
-    baseAC = (equippedArmor.baseAC || 14) + allowedDex;
+    totalAC = (equippedArmor.baseAC || 14) + allowedDex;
+    breakdown = `${equippedArmor.name} (${equippedArmor.baseAC}) + DES (${signed(allowedDex)})`;
   }
 
   if (equippedShield) {
-    baseAC += (equippedShield.bonusAC || 2);
+    totalAC += (equippedShield.bonusAC || 2);
+    breakdown += ` + ${equippedShield.name} (+${equippedShield.bonusAC || 2})`;
   }
 
-  return baseAC;
+  return { totalAC, breakdown };
 }
 
-/* ATAQUES */
+/* =========================================================
+   ATAQUES
+========================================================= */
 function renderAttacks() {
   const tbody = $("attacksTableBody");
+  if (!tbody || !state.character) return;
+
   const c = state.character;
   const prof = calcProf(c.class_level);
   const chaMod = calcMod(c.charisma);
@@ -303,46 +424,46 @@ function renderAttacks() {
       damageText = `${atk.dmgDie} + ${dexMod}`;
     }
 
+    const safeName = escapeHTML(atk.name);
+    const safeDamage = escapeHTML(damageText);
+    const safeDie = escapeHTML(atk.dmgDie);
+    const safeType = escapeHTML(atk.dmgType);
+
     return `
-      <tr onclick="rollAttack('${atk.name}', ${bonus}, '${damageText}', '${atk.dmgDie}')">
-        <td><strong>${atk.name}</strong></td>
+      <tr onclick="rollAttack('${safeName.replaceAll("'", "\\'")}', ${bonus}, '${safeDamage.replaceAll("'", "\\'")}', '${safeDie.replaceAll("'", "\\'")}')">
+        <td><strong>${safeName}</strong></td>
         <td><b style="color:var(--bronze);">${signed(bonus)}</b></td>
         <td>${damageText}</td>
-        <td><small style="color:var(--muted);">${atk.dmgType}</small></td>
+        <td><small style="color:var(--muted);">${safeType}</small></td>
       </tr>
     `;
   }).join("");
 }
 
-function rollAttack(name, bonus, damageText, dmgDie) {
+window.rollAttack = function(name, bonus, damageText, dmgDie) {
   const d20 = Math.floor(Math.random() * 20) + 1;
   const isCrit = (state.combat.hexblade_curse_active && d20 >= 19) || d20 === 20;
-  const total = d20 + bonus;
+  const total = d20 + Number(bonus);
 
   const box = $("rollResultBox");
-  box.style.display = "block";
-  $("rollSkillTitle").textContent = `ATAQUE: ${name.toUpperCase()}`;
-  $("rollMath").textContent = isCrit ? `¡CRÍTICO! (${total})` : `Impacto: ${total}`;
-  $("rollDetail").textContent = `d20 (${d20}) + ${bonus} | Daño: ${damageText} ${isCrit ? `· ¡Crítico duplica los dados (${dmgDie})!` : ''}`;
-}
+  if (!box) return;
 
-/* TIRADAS DE SALVACIÓN INTERACTIVAS */
-window.rollSavingThrow = function(statName, bonus) {
-  const d20 = Math.floor(Math.random() * 20) + 1;
-  const total = d20 + bonus;
-  const box = $("rollResultBox");
   box.style.display = "block";
-  $("rollSkillTitle").textContent = `SALVACIÓN: ${statName.toUpperCase()}`;
-  $("rollMath").textContent = `Resultado: ${total}`;
-  $("rollDetail").textContent = `d20 (${d20}) + bono (${signed(bonus)})`;
+  safeSetText("rollSkillTitle", `ATAQUE: ${name.toUpperCase()}`);
+  safeSetText("rollMath", isCrit ? `¡CRÍTICO! (${total})` : `Impacto: ${total}`);
+  safeSetText("rollDetail", `d20 (${d20}) + ${bonus} | Daño: ${damageText}${isCrit ? ` · ¡Crítico duplica dados (${dmgDie})!` : ''}`);
 };
 
-/* RENDER DE DERIVADOS Y SALVACIONES */
+/* =========================================================
+   DERIVADOS Y RASGOS PRÁCTICOS
+========================================================= */
 function renderDerived() {
   const c = state.character;
-  const level = c.class_level;
+  if (!c) return;
+
+  const level = Number(c.class_level) || 1;
   const prof = calcProf(level);
-  
+
   const mods = {
     strength: calcMod(c.strength),
     dexterity: calcMod(c.dexterity),
@@ -352,97 +473,152 @@ function renderDerived() {
     charisma: calcMod(c.charisma)
   };
 
-  $("headerLevel").textContent = level;
-  $("levelValueDisplay").textContent = level;
-  $("profDisplay").textContent = prof;
-  $("guideProfDmg").textContent = prof;
-  $("curseDmgBonus").textContent = prof;
-  $("curseHealBonus").textContent = level + mods.charisma;
+  safeSetText("headerLevel", level);
+  safeSetText("levelValueDisplay", level);
+  safeSetText("profDisplay", prof);
+  safeSetText("guideProfDmg", prof);
+  safeSetText("curseDmgBonus", prof);
+  safeSetText("curseHealBonus", level + mods.charisma);
 
-  const currentAC = calculateAC();
-  $("combatAC").textContent = currentAC;
-  $("combatInit").textContent = signed(mods.dexterity);
+  // Valores interactivos en Rasgos
+  safeSetText("necroticDcDisplay", 8 + prof + mods.charisma);
+  safeSetText("necroticDmgDisplay", level);
+  safeSetText("healingHandsValue", level);
 
-  Object.keys(mods).forEach(s => {
-    $(`score_${s}`).value = c[s];
-    $(`mod_${s}`).textContent = signed(mods[s]);
+  const acInfo = calculateACDetails();
+  safeSetText("combatAC", acInfo.totalAC);
+  safeSetText("acBreakdownText", acInfo.breakdown);
+  safeSetText("combatInit", signed(mods.dexterity));
+
+  Object.keys(mods).forEach(stat => {
+    const input = $(`score_${stat}`);
+    const modDisplay = $(`mod_${stat}`);
+    if (input) input.value = c[stat];
+    if (modDisplay) modDisplay.textContent = signed(mods[stat]);
   });
 
-  // Actualizar valores de salvaciones en el HTML
-  if ($("st_fue_val")) $("st_fue_val").textContent = signed(mods.strength);
-  if ($("st_des_val")) $("st_des_val").textContent = signed(mods.dexterity);
-  if ($("st_con_val")) $("st_con_val").textContent = signed(mods.constitution);
-  if ($("st_int_val")) $("st_int_val").textContent = signed(mods.intelligence);
-  if ($("st_sab_val")) $("st_sab_val").textContent = signed(mods.wisdom + prof);
-  if ($("st_car_val")) $("st_car_val").textContent = signed(mods.charisma + prof);
-
-  // Habilidades
   const proficientSkills = ["atletismo", "percepción", "religión"];
   const expertiseSkills = ["engañar"];
-  $("fullSkillsList").innerHTML = DND_SKILLS.map(sk => {
-    const key = sk.name.toLowerCase();
-    let total = mods[sk.stat];
-    let mark = "";
-    if (expertiseSkills.includes(key)) { total += prof * 2; mark = " ✦✦"; }
-    else if (proficientSkills.includes(key)) { total += prof; mark = " ✦"; }
+  const skillsContainer = $("fullSkillsList");
 
-    return `
-      <div onclick="rollSkillCheck('${sk.name}', ${total})" style="cursor:pointer;">
-        <span>${sk.name}${mark} <small style="color:var(--muted)">(${sk.stat.substring(0,3).toUpperCase()})</small></span>
-        <b>${signed(total)}</b>
-      </div>
-    `;
-  }).join("");
+  if (skillsContainer) {
+    skillsContainer.innerHTML = DND_SKILLS.map(skill => {
+      const key = skill.name.toLowerCase();
+      let total = mods[skill.stat];
+      let mark = "";
 
-  $("magicDCDisplay").textContent = 8 + prof + mods.charisma;
-  $("magicAtkDisplay").textContent = signed(prof + mods.charisma);
+      if (expertiseSkills.includes(key)) {
+        total += prof * 2;
+        mark = " ✦✦";
+      } else if (proficientSkills.includes(key)) {
+        total += prof;
+        mark = " ✦";
+      }
+
+      return `
+        <div onclick="rollSkillCheck('${escapeHTML(skill.name).replaceAll("'", "\\'")}', ${total})">
+          <span>${escapeHTML(skill.name)}${mark} <small style="color:var(--muted)">(${skill.stat.substring(0,3).toUpperCase()})</small></span>
+          <b>${signed(total)}</b>
+        </div>
+      `;
+    }).join("");
+  }
+
+  safeSetText("magicDCDisplay", 8 + prof + mods.charisma);
+  safeSetText("magicAtkDisplay", signed(prof + mods.charisma));
 
   renderCompanions();
   renderAttacks();
+  renderDeathSaves();
 }
 
-function rollSkillCheck(name, bonus) {
+window.rollSkillCheck = function(name, bonus) {
   const d20 = Math.floor(Math.random() * 20) + 1;
-  const total = d20 + bonus;
+  const total = d20 + Number(bonus);
+
   const box = $("rollResultBox");
+  if (!box) return;
+
   box.style.display = "block";
-  $("rollSkillTitle").textContent = `PRUEBA: ${name.toUpperCase()}`;
-  $("rollMath").textContent = `Resultado: ${total}`;
-  $("rollDetail").textContent = `d20 (${d20}) + bono (${signed(bonus)})`;
-}
+  safeSetText("rollSkillTitle", `PRUEBA: ${name.toUpperCase()}`);
+  safeSetText("rollMath", `Resultado: ${total}`);
+  safeSetText("rollDetail", `d20 (${d20}) + bono (${signed(bonus)})`);
+};
+
+/* =========================================================
+   ACCIONES DIRECTAS DE RASGOS (SOCIAL & UTILIDAD)
+========================================================= */
+window.useTraitAction = function(type) {
+  if (type === 'passage') {
+    alert("⚓ Pasaje Marítimo Activado:\nPuedes asegurar viaje gratuito para el grupo en cualquier embarcación bajo las condiciones del DM, a cambio de que sirvan a la tripulación durante la travesía.");
+  }
+};
+
+window.useNecroticShroud = function() {
+  const prof = calcProf(state.character.class_level);
+  const chaMod = calcMod(state.character.charisma);
+  const dc = 8 + prof + chaMod;
+  const dmg = state.character.class_level;
+
+  alert(`💀 Mortaja Necrótica Activada (1 minuto):\n• Criaturas a 10 pies deben superar salvación de CARISMA (CD ${dc}) o quedarán asustadas hasta el final de tu próximo turno.\n• Una vez por turno, infliges +${dmg} de daño necrótico adicional al dañar a un objetivo.`);
+};
+
+window.useHealingHands = function() {
+  if (state.healingHandsUsed) {
+    alert("Ya utilizaste Manos Curativas hoy. Se restaura con un Descanso Largo.");
+    return;
+  }
+  const heal = Number(state.character.class_level) || 6;
+  modifyHP(heal);
+  state.healingHandsUsed = true;
+  const btn = $("btnHealingHands");
+  if (btn) btn.disabled = true;
+  alert(`💚 Manos Curativas: Has tocado para sanar ${heal} PV. Tu salud se ha actualizado en la ficha.`);
+};
 
 window.stepLevel = function(delta) {
-  state.character.class_level = Math.max(1, Math.min(20, state.character.class_level + delta));
+  if (!state.character) return;
+  state.character.class_level = Math.max(1, Math.min(20, Number(state.character.class_level) + Number(delta)));
   renderDerived();
 };
 
 window.stepStat = function(stat, delta) {
-  state.character[stat] = Math.max(1, Math.min(30, state.character[stat] + delta));
+  if (!state.character || !(stat in state.character)) return;
+  state.character[stat] = Math.max(1, Math.min(30, Number(state.character[stat]) + Number(delta)));
   renderDerived();
 };
 
 /* INVENTARIO */
 function renderEquipment() {
-  $("equipmentListCategorized").innerHTML = state.equipment.map(item => `
-    <div class="item-row">
-      <div style="flex:1;">
-        <strong>${escapeHTML(item.name)}</strong>
-        <small style="color:var(--muted);">Cantidad: ${item.quantity} ${item.type === 'armor' ? '(Armadura)' : (item.type === 'shield' ? '(Escudo)' : '')}</small>
+  const container = $("equipmentListCategorized");
+  if (!container) return;
+
+  container.innerHTML = state.equipment.map(item => {
+    const locText = item.location === "equipped" ? "⚔ Equipado" : (item.location === "stored" ? "📦 Almacenado" : "🎒 Cargado");
+    const extraType = item.type === "armor" ? " (Armadura)" : (item.type === "shield" ? " (Escudo)" : "");
+
+    return `
+      <div class="item-row">
+        <div style="flex:1;">
+          <strong>${escapeHTML(item.name)}</strong>
+          <small style="color:var(--muted);">Cantidad: ${item.quantity}${extraType}</small>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="secondary-action ${item.location === 'equipped' ? 'active' : ''}" onclick="cycleItem('${item.id}')">
+            ${locText}
+          </button>
+          <button class="tiny-button" style="color:var(--danger); font-size:16px; padding:4px 6px;" onclick="deleteItem('${item.id}')" title="Eliminar objeto">✕</button>
+        </div>
       </div>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <button class="secondary-action ${item.location === 'equipped' ? 'active' : ''}" onclick="cycleItem('${item.id}')">
-          ${item.location === 'equipped' ? '⚔ Equipado' : (item.location === 'stored' ? '📦 Almacenado' : '🎒 Cargado')}
-        </button>
-        <button class="tiny-button" style="color:var(--danger); font-size:16px; padding:4px 6px;" onclick="deleteItem('${item.id}')" title="Eliminar objeto">✕</button>
-      </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 
 window.cycleItem = function(id) {
   const item = state.equipment.find(i => i.id === id);
   if (!item) return;
-  const states = ['equipped', 'carried', 'stored'];
+
+  const states = ["equipped", "carried", "stored"];
   item.location = states[(states.indexOf(item.location) + 1) % states.length];
   renderEquipment();
   renderDerived();
@@ -457,49 +633,61 @@ window.deleteItem = function(id) {
 
 /* CONJUROS */
 function renderSpells() {
-  $("magicSlotDisplay").textContent = `${state.spellSlots} / 2`;
-  $("spellsFullList").innerHTML = OFFICIAL_SPELLS.map((sp, idx) => `
+  safeSetText("magicSlotDisplay", `${state.spellSlots} / 2`);
+  const container = $("spellsFullList");
+  if (!container) return;
+
+  container.innerHTML = OFFICIAL_SPELLS.map((sp, idx) => `
     <div class="item-row" onclick="openSpellModal(${idx})" style="cursor:pointer;">
       <div>
-        <strong>${sp.name}</strong>
-        <small style="color:var(--muted);">${sp.time} · ${sp.range}</small>
+        <strong>${escapeHTML(sp.name)}</strong>
+        <small style="color:var(--muted);">${escapeHTML(sp.time)} · ${escapeHTML(sp.range)}</small>
       </div>
-      <span class="tag">${sp.level}</span>
+      <span class="tag">${escapeHTML(sp.level)}</span>
     </div>
   `).join("");
 }
 
 window.openSpellModal = function(idx) {
   const sp = OFFICIAL_SPELLS[idx];
+  if (!sp) return;
+
   state.activeModalSpell = sp;
-  $("modalSpellName").textContent = sp.name;
-  $("modalSpellLevel").textContent = sp.level;
-  $("modalSpellTime").textContent = sp.time;
-  $("modalSpellRange").textContent = sp.range;
-  $("modalSpellDuration").textContent = sp.duration;
-  $("modalSpellEffect").innerHTML = `<b>Efecto:</b> ${sp.damage}<br><br>${sp.desc}`;
+  safeSetText("modalSpellName", sp.name);
+  safeSetText("modalSpellLevel", sp.level);
+  safeSetText("modalSpellTime", sp.time);
+  safeSetText("modalSpellRange", sp.range);
+  safeSetText("modalSpellDuration", sp.duration);
+
+  const eff = $("modalSpellEffect");
+  if (eff) eff.innerHTML = `<b>Efecto:</b> ${escapeHTML(sp.damage)}<br><br>${escapeHTML(sp.desc)}`;
 
   const btn = $("modalCastSpellBtn");
-  if (sp.isCantrip) {
-    btn.textContent = "Lanzar Truco (Sin Coste)";
-    btn.disabled = false;
-  } else {
-    btn.textContent = `Lanzar (${state.spellSlots}/2 Espacios)`;
-    btn.disabled = state.spellSlots <= 0;
+  if (btn) {
+    if (sp.isCantrip) {
+      btn.textContent = "Lanzar Truco (Sin Coste)";
+      btn.disabled = false;
+    } else {
+      btn.textContent = `Lanzar (${state.spellSlots}/2 Espacios)`;
+      btn.disabled = state.spellSlots <= 0;
+    }
   }
 
-  $("spellModal").classList.add("active");
+  const modal = $("spellModal");
+  if (modal) modal.classList.add("active");
 };
 
 window.closeSpellModal = function(e) {
-  if (e && e.stopPropagation) e.stopPropagation();
-  $("spellModal").classList.remove("active");
+  if (e) e.stopPropagation();
+  const modal = $("spellModal");
+  if (modal) modal.classList.remove("active");
   state.activeModalSpell = null;
 };
 
 async function castModalSpell() {
   const sp = state.activeModalSpell;
   if (!sp) return;
+
   if (!sp.isCantrip) {
     if (state.spellSlots <= 0) return alert("Sin espacios de pacto disponibles.");
     state.spellSlots--;
@@ -514,118 +702,77 @@ async function castModalSpell() {
   closeSpellModal();
 }
 
-/* RASGOS */
-function renderFeats() {
-  $("racialTraitsList").innerHTML = `
-    <div class="item-row"><strong>Resistencia Celestial</strong><span>Resistencia a daño necrótico y radiante.</span></div>
-    <div class="item-row"><strong>Manos Curativas</strong><span>Acción: sana ${state.character.class_level} PV (1/descanso largo).</span></div>
-    <div class="item-row"><strong>Mortaja Necrótica</strong><span>Acción: alas esqueléticas, asusta en 10 ft y suma +${state.character.class_level} daño necrótico.</span></div>
-  `;
-
-  $("classTraitsList").innerHTML = `
-    <div class="item-row"><strong>Guerrero Maléfico</strong><span>Usa Carisma (+5) para atacar y dañar con armas del pacto.</span></div>
-    <div class="item-row"><strong>Maldición del Filo Maléfico</strong><span>Crítico 19-20, +${calcProf(state.character.class_level)} daño y cura ${state.character.class_level + calcMod(state.character.charisma)} PV al morir.</span></div>
-    <div class="item-row"><strong>Espectro Maldito</strong><span>Al matar a un humanoide, alza su espectro con ${Math.floor(state.character.class_level / 2)} PV temp.</span></div>
-  `;
-
-  $("customTraitsList").innerHTML = `
-    <div class="item-row"><strong>Toque Feérico (Dote)</strong><span>Aprende Paso Brumoso y Susurros Disonantes.</span></div>
-    <div class="item-row"><strong>Marca de Lady D. (Regla DM)</strong><span>Otorga Infligir Heridas a cambio de dolor físico.</span></div>
-  `;
-
-  $("invocationsFullList").innerHTML = `
-    <div class="item-row"><strong>Arma de Pacto Mejorada</strong><span>+1 a ataque y daño, foco de conjuros.</span></div>
-    <div class="item-row"><strong>Castigo Arcano (Eldritch Smite)</strong><span>Gasta slot para +4d8 fuerza y derriba.</span></div>
-    <div class="item-row"><strong>Filo Sediento (Thirsting Blade)</strong><span>2 ataques con arma de pacto.</span></div>
-  `;
-}
-
 /* COMPAÑEROS */
 function renderCompanions() {
-  $("pourcoonHpDisplay").textContent = `${state.pourcoonHp} / ${state.pourcoonMaxHp}`;
+  if (!state.character) return;
+  safeSetText("pourcoonHpDisplay", `${state.pourcoonHp} / ${state.pourcoonMaxHp}`);
+
   const specterHp = Math.floor(state.character.class_level / 2);
-  $("specterHpDisplay").textContent = `${specterHp} PV`;
-  $("specterFormulaText").textContent = `${specterHp} PV`;
-  $("specterAtkBonus").textContent = signed(calcMod(state.character.charisma));
-  $("specterModText").textContent = signed(calcMod(state.character.charisma));
+  safeSetText("specterHpDisplay", `${specterHp} PV`);
+  safeSetText("specterFormulaText", `${specterHp} PV`);
+
+  const chaMod = calcMod(state.character.charisma);
+  safeSetText("specterAtkBonus", signed(chaMod));
+  safeSetText("specterModText", signed(chaMod));
 }
 
-/* ACTUALIZACIÓN VISUAL FORZADA DE PUNTOS DE VIDA */
-function updateHPUI() {
-  const current = Number(state.character.current_hp) || 0;
-  const max = Number(state.character.max_hp) || 48;
-  
-  $("hpValue").textContent = `${current} / ${max}`;
-  const pct = Math.max(0, Math.min(100, (current / max) * 100));
-  $("hpBar").style.width = `${pct}%`;
+/* DESCANSOS */
+function resetCombatToggles() {
+  state.combat.hexblade_curse_active = false;
+  state.combat.elemental_weapon_active = false;
+
+  document.querySelectorAll("[data-combat-toggle]").forEach(btn => {
+    btn.classList.remove("active");
+    const key = btn.dataset.combatToggle;
+    const check = $(`check_${key}`);
+    if (check) check.textContent = "○";
+  });
 }
 
-/* DESCANSOS (RESTABLECIMIENTO COMPLETO DE VIDA) */
 function setupRests() {
-  // Descanso Corto
   const triggerShortRest = async () => {
     state.spellSlots = 2;
-    state.combat.hexblade_curse_active = false;
-    state.combat.elemental_weapon_active = false;
-    
-    document.querySelectorAll("[data-combat-toggle]").forEach(btn => {
-      btn.classList.remove("active");
-      const key = btn.dataset.combatToggle;
-      state.combat[key] = false;
-      const check = $(`check_${key}`);
-      if (check) check.textContent = "○";
-    });
-
+    resetCombatToggles();
     renderSpells();
     renderAttacks();
 
     try {
       await db.from("characters").update({ spell_slots_level_3: 2 }).eq("name", "Lior Kurogane");
-    } catch (e) {
-      console.warn("Guardado local:", e);
-    }
+    } catch (e) {}
 
     alert("⏳ Descanso Corto completado:\n• Espacios de pacto restaurados a 2/2.");
   };
 
-  $("btnShortRest").addEventListener("click", triggerShortRest);
-  $("btnMagicShortRest").addEventListener("click", triggerShortRest);
+  $("btnShortRest")?.addEventListener("click", triggerShortRest);
+  $("btnMagicShortRest")?.addEventListener("click", triggerShortRest);
 
-  // Descanso Largo
-  $("btnLongRest").addEventListener("click", async () => {
-    if (!confirm("¿Deseas iniciar un Descanso Largo (8 horas)? Se recuperará toda tu vida (48/48) y tus espacios de pacto.")) return;
+  $("btnLongRest")?.addEventListener("click", async () => {
+    if (!confirm("¿Deseas iniciar un Descanso Largo (8 horas)? Se recuperará toda tu vida (48/48), tus espacios de pacto y se limpiarán los fallos de muerte.")) return;
 
-    // 1. Restaurar vida obligatoriamente al máximo
-    state.character.current_hp = state.character.max_hp;
+    state.character.max_hp = 48;
+    state.character.current_hp = 48;
     state.spellSlots = 2;
     state.pourcoonHp = state.pourcoonMaxHp;
-    
-    // 2. Apagar estados de combate activos
-    document.querySelectorAll("[data-combat-toggle]").forEach(btn => {
-      btn.classList.remove("active");
-      const key = btn.dataset.combatToggle;
-      state.combat[key] = false;
-      const check = $(`check_${key}`);
-      if (check) check.textContent = "○";
-    });
+    state.deathSuccesses = 0;
+    state.deathFailures = 0;
+    state.healingHandsUsed = false;
 
-    // 3. Forzar redibujado síncrono inmediato en la interfaz
+    const hhBtn = $("btnHealingHands");
+    if (hhBtn) hhBtn.disabled = false;
+
+    resetCombatToggles();
+
     updateHPUI();
+    renderDeathSaves();
     renderSpells();
     renderCompanions();
     renderAttacks();
 
-    // 4. Actualizar base de datos
     try {
-      await db.from("characters").update({ 
-        current_hp: state.character.max_hp, 
-        spell_slots_level_3: 2 
-      }).eq("name", "Lior Kurogane");
-    } catch (e) {
-      console.warn("Guardado local:", e);
-    }
+      await db.from("characters").update({ current_hp: 48, spell_slots_level_3: 2 }).eq("name", "Lior Kurogane");
+    } catch (e) {}
 
-    alert("⛺ Descanso Largo completado:\n• Vida restaurada al 100% (48/48 PV).\n• Espacios de pacto restaurados (2/2).\n• Salud de Pourcoon recuperada.");
+    alert("⛺ Descanso Largo completado:\n• Vida restaurada al 100% (48/48 PV).\n• Espacios de pacto restaurados (2/2).\n• Salud de Pourcoon recuperada.\n• Rasgos y salvaciones de muerte reiniciados.");
   });
 }
 
@@ -633,6 +780,8 @@ function setupCombatToggles() {
   document.querySelectorAll("[data-combat-toggle]").forEach(btn => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.combatToggle;
+      if (!(key in state.combat)) return;
+
       state.combat[key] = !state.combat[key];
       btn.classList.toggle("active", state.combat[key]);
       const check = $(`check_${key}`);
@@ -641,33 +790,33 @@ function setupCombatToggles() {
     });
   });
 
-  $("hpMinusBtn").addEventListener("click", async () => {
-    state.character.current_hp = Math.max(0, state.character.current_hp - 1);
-    updateHPUI();
-    try {
-      await db.from("characters").update({ current_hp: state.character.current_hp }).eq("name", "Lior Kurogane");
-    } catch (e) {
-      console.warn("Guardado local:", e);
-    }
+  $("hpMinus10Btn")?.addEventListener("click", () => modifyHP(-10));
+  $("hpMinusBtn")?.addEventListener("click", () => modifyHP(-1));
+  $("hpPlusBtn")?.addEventListener("click", () => modifyHP(1));
+  $("hpPlus10Btn")?.addEventListener("click", () => modifyHP(10));
+
+  $("btnPourcoonHpMinus")?.addEventListener("click", () => {
+    state.pourcoonHp = Math.max(0, state.pourcoonHp - 1);
+    renderCompanions();
   });
 
-  $("hpPlusBtn").addEventListener("click", async () => {
-    state.character.current_hp = Math.min(state.character.max_hp, state.character.current_hp + 1);
-    updateHPUI();
-    try {
-      await db.from("characters").update({ current_hp: state.character.current_hp }).eq("name", "Lior Kurogane");
-    } catch (e) {
-      console.warn("Guardado local:", e);
-    }
+  $("btnPourcoonHpPlus")?.addEventListener("click", () => {
+    state.pourcoonHp = Math.min(state.pourcoonMaxHp, state.pourcoonHp + 1);
+    renderCompanions();
   });
 
-  $("btnPourcoonHpMinus").addEventListener("click", () => { state.pourcoonHp = Math.max(0, state.pourcoonHp - 1); renderCompanions(); });
-  $("btnPourcoonHpPlus").addEventListener("click", () => { state.pourcoonHp = Math.min(9, state.pourcoonHp + 1); renderCompanions(); });
-  $("btnPourcoonReset").addEventListener("click", () => { state.pourcoonHp = 9; renderCompanions(); });
+  $("btnPourcoonReset")?.addEventListener("click", () => {
+    state.pourcoonHp = state.pourcoonMaxHp;
+    renderCompanions();
+  });
 
-  $("addItemBtn").addEventListener("click", () => {
-    const name = $("newItemName").value.trim();
-    const qty = Number($("newItemQty").value) || 1;
+  $("addItemBtn")?.addEventListener("click", () => {
+    const nameInput = $("newItemName");
+    const qtyInput = $("newItemQty");
+    if (!nameInput) return;
+
+    const name = nameInput.value.trim();
+    const qty = Number(qtyInput?.value) || 1;
     if (!name) return;
 
     let type = 'item';
@@ -694,8 +843,8 @@ function setupCombatToggles() {
       bonusAC
     });
 
-    $("newItemName").value = "";
-    $("newItemQty").value = 1;
+    nameInput.value = "";
+    if (qtyInput) qtyInput.value = 1;
     renderEquipment();
     renderDerived();
   });
@@ -705,16 +854,23 @@ function renderAll() {
   updateHPUI();
   renderLoyaltyCard();
   renderDerived();
-  renderFeats();
   renderEquipment();
   renderSpells();
   renderCompanions();
+  renderDeathSaves();
 }
 
 window.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   setupCombatToggles();
   setupRests();
-  $("modalCastSpellBtn").addEventListener("click", castModalSpell);
+
+  $("modalCastSpellBtn")?.addEventListener("click", castModalSpell);
+
+  const modal = $("spellModal");
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) window.closeSpellModal(e);
+  });
+
   loadAll();
 });

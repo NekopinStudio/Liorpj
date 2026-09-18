@@ -7,11 +7,12 @@
   <title>Lior Kurogane — D&D 5E</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="app">
 
-    <!-- CABECERA PRINCIPAL TIPO NIVEL20 -->
+    <!-- CABECERA -->
     <header class="topbar">
       <div class="header-info">
         <div class="avatar-ring">
@@ -31,11 +32,11 @@
     </header>
 
     <!-- PESTAÑAS -->
-    <nav class="sheet-tabs">
+    <nav class="sheet-tabs" aria-label="Navegación principal">
       <button class="sheet-tab-btn active" data-tab="tab-info">Información</button>
-      <button class="sheet-tab-btn" data-tab="tab-feats">Rasgos</button>
-      <button class="sheet-tab-btn" data-tab="tab-items">Equipo</button>
-      <button class="sheet-tab-btn" data-tab="tab-magic">Conjuros</button>
+      <button class="sheet-tab-btn" data-tab="tab-traits">Rasgos</button>
+      <button class="sheet-tab-btn" data-tab="tab-equipment">Equipo</button>
+      <button class="sheet-tab-btn" data-tab="tab-spells">Conjuros</button>
       <button class="sheet-tab-btn" data-tab="tab-companions">Compañeros</button>
       <button class="sheet-tab-btn" data-tab="tab-diary">Diario</button>
     </nav>
@@ -43,35 +44,28 @@
     <main>
 
       <!-- =========================================================
-           1. PESTAÑA: INFORMACIÓN & COMBATE TÁCTICO
+           1. INFORMACIÓN Y COMBATE
       ========================================================= -->
       <section id="tab-info" class="tab-panel active">
 
-        <!-- ASISTENTE DE TEMPO Y SECUENCIA DE ATAQUE -->
+        <!-- GUÍA DE TEMPO -->
         <div class="tactical-banner">
           <div class="panel-title">
             <span>⚔ GUÍA DE TEMPO Y SECUENCIA DE ATAQUE</span>
             <small>Brujo del Filo Maléfico</small>
           </div>
-
           <div class="combo-steps">
             <div class="combo-step">
               <span class="step-num">1</span>
-              <div>
-                <strong>Acción Adicional:</strong> Activar Maldición del Filo (Crítico 19-20, +<span id="guideProfDmg">3</span> daño).
-              </div>
+              <div><strong>Acción Adicional:</strong> Activar Maldición del Filo (Crítico 19-20, +<span id="guideProfDmg">3</span> daño).</div>
             </div>
             <div class="combo-step">
               <span class="step-num">2</span>
-              <div>
-                <strong>Acción de Ataque:</strong> Ejecutar 2 ataques (Filo Sediento). Usa Carisma (+5) para impactar.
-              </div>
+              <div><strong>Acción de Ataque:</strong> Ejecutar 2 ataques (Filo Sediento). Usa Carisma (+5) para impactar.</div>
             </div>
             <div class="combo-step">
               <span class="step-num">3</span>
-              <div>
-                <strong>Al Impactar:</strong> Si es crítico o enemigo peligroso, declarar Eldritch Smite (+4d8 fuerza).
-              </div>
+              <div><strong>Al Impactar:</strong> Si es crítico o enemigo peligroso, declarar Eldritch Smite (+4d8 fuerza).</div>
             </div>
           </div>
 
@@ -79,7 +73,7 @@
             <button class="prep-button" data-combat-toggle="hexblade_curse_active">
               <span class="prep-check" id="check_hexblade_curse_active">○</span>
               <span>
-                <b>Maldición del Filo</b>
+                <b>Maldición del Filo Maléfico</b>
                 <small>Rango crítico 19-20 · +<span id="curseDmgBonus">3</span> daño · Sana <span id="curseHealBonus">11</span> PV al morir</small>
               </span>
             </button>
@@ -93,27 +87,77 @@
           </div>
         </div>
 
-        <!-- Estadísticas Principales -->
-        <div class="stat-grid four">
+        <!-- CUADRÍCULA VITAL REESTRUCTURADA -->
+        <div class="stat-grid four combat-vitals-grid">
+          
           <div class="stat-card hp-card">
             <span>PUNTOS DE GOLPE</span>
             <strong id="hpValue">48 / 48</strong>
-            <div class="hp-bar"><div id="hpBar"></div></div>
-            <div style="display:flex; gap:6px; margin-top:8px;">
-              <button class="turn-button" id="hpMinusBtn" style="margin:0; padding:4px;">-1 PV</button>
-              <button class="turn-button" id="hpPlusBtn" style="margin:0; padding:4px;">+1 PV</button>
+            <div class="hp-bar"><div id="hpBar" style="width: 100%;"></div></div>
+            <div class="hp-controls-quad">
+              <button class="turn-button hp-step-btn" id="hpMinus10Btn">-10 PV</button>
+              <button class="turn-button hp-step-btn" id="hpMinusBtn">-1 PV</button>
+              <button class="turn-button hp-step-btn" id="hpPlusBtn">+1 PV</button>
+              <button class="turn-button hp-step-btn" id="hpPlus10Btn">+10 PV</button>
             </div>
           </div>
-          <div class="stat-card"><span>CA</span><strong id="combatAC">12</strong></div>
-          <div class="stat-card"><span>INICIATIVA</span><strong id="combatInit">+2</strong></div>
-          <div class="stat-card"><span>VELOCIDAD</span><strong id="combatSpeed">30 pies</strong></div>
+
+          <div class="stat-card ac-card">
+            <span>CLASE DE ARMADURA</span>
+            <strong id="combatAC">12</strong>
+            <small id="acBreakdownText" class="ac-breakdown">Base 10 + DES (+2)</small>
+          </div>
+
+          <div class="stat-card init-card">
+            <span>INICIATIVA</span>
+            <strong id="combatInit">+2</strong>
+            <small style="color:var(--muted); font-size:10px;">Modificador DES</small>
+          </div>
+
+          <div class="stat-card speed-card">
+            <span>VELOCIDAD</span>
+            <strong id="combatSpeed">30 ft</strong>
+          </div>
+
+          <!-- SALVACIÓN DE MUERTE EN EL ESPACIO HORIZONTAL -->
+          <div class="stat-card death-saves-horizontal-card">
+            <div class="death-saves-horizontal-header">
+              <span>SALVACIONES DE MUERTE (0 PV)</span>
+              <button class="tiny-button" onclick="resetDeathSaves()">Limpiar</button>
+            </div>
+
+            <div class="death-saves-horizontal-body">
+              <div class="horizontal-track">
+                <span class="save-label success-label">ÉXITOS</span>
+                <div class="save-dots">
+                  <span class="dot success-dot" id="succ_1" onclick="toggleDeathDot('success', 1)"></span>
+                  <span class="dot success-dot" id="succ_2" onclick="toggleDeathDot('success', 2)"></span>
+                  <span class="dot success-dot" id="succ_3" onclick="toggleDeathDot('success', 3)"></span>
+                </div>
+              </div>
+
+              <button class="main-action death-roll-btn-compact" onclick="rollDeathSave()">
+                🎲 Tirar (d20)
+              </button>
+
+              <div class="horizontal-track">
+                <span class="save-label failure-label">FALLOS</span>
+                <div class="save-dots">
+                  <span class="dot failure-dot" id="fail_1" onclick="toggleDeathDot('failure', 1)"></span>
+                  <span class="dot failure-dot" id="fail_2" onclick="toggleDeathDot('failure', 2)"></span>
+                  <span class="dot failure-dot" id="fail_3" onclick="toggleDeathDot('failure', 3)"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <!-- REINICIO DE RECURSOS: DESCANSOS D&D 5E -->
+        <!-- DESCANSOS -->
         <div class="sheet-card rest-card">
           <div class="panel-title" style="margin-bottom:8px;">
             <span>RECUPERACIÓN & DESCANSOS</span>
-            <small>Gestión de recursos vitales y mágicos</small>
+            <small>Restaura recursos vitales y mágicos</small>
           </div>
           <div class="rest-actions-grid">
             <button id="btnShortRest" class="rest-button short-rest">
@@ -127,18 +171,18 @@
               <span class="rest-icon">⛺</span>
               <div>
                 <strong>Descanso Largo (8h)</strong>
-                <small>Restaura 100% de PV (48/48), slots y rasgos</small>
+                <small>Restaura 100% de PV (48/48) y recursos</small>
               </div>
             </button>
           </div>
         </div>
 
-        <!-- TARJETA DE FIDELIDAD DE MUERTES CON CELEBRACIÓN Y GRITO -->
+        <!-- TARJETA DE FIDELIDAD DE MUERTES -->
         <div class="death-card-loyalty">
           <div class="loyalty-header">
             <div>
               <h3>☠ TARJETA DE LEALTAD MORTAL</h3>
-              <small>Colecciona 10 muertes para tu recompensa (¡con sorpresa sonora!)</small>
+              <small>Colecciona 10 muertes para la fiesta de cumpleaños Grunt</small>
             </div>
             <div>
               <span id="deathLoyaltyCount" style="font-size:16px; font-weight:900; color:#8F1825;">4</span> / 10
@@ -147,11 +191,11 @@
           <div class="loyalty-slots-grid" id="loyaltySlotsContainer"></div>
         </div>
 
-        <!-- Control de Nivel y Progresión -->
+        <!-- PROGRESIÓN -->
         <div class="sheet-card">
           <div class="panel-title">
             <span>PROGRESIÓN DEL PERSONAJE</span>
-            <small>Ajusta el nivel para recalcular toda la ficha</small>
+            <small>Modifica el nivel para recalcular derivadas</small>
           </div>
           <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
             <div>
@@ -165,88 +209,69 @@
           </div>
         </div>
 
-        <!-- BLOQUE PARALELO: CARACTERÍSTICAS (IZQUIERDA) + SALVACIONES (DERECHA) -->
-        <div class="abilities-and-saves-container">
-          <!-- Columna Izquierda: Características -->
-          <div class="sheet-card" style="margin-bottom:0;">
-            <div class="panel-title"><span>CARACTERÍSTICAS</span></div>
-            <div class="ability-grid">
-              <div class="ability-control-card">
-                <span>FUE</span>
-                <input id="score_strength" type="number" value="13" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('strength', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('strength', +1)">+</button>
-                </div>
-                <b id="mod_strength">+1</b>
+        <!-- CARACTERÍSTICAS (FILA DE 6) -->
+        <div class="sheet-card">
+          <div class="panel-title"><span>CARACTERÍSTICAS PRINCIPALES</span></div>
+          <div class="ability-grid six-cols">
+            <div class="ability-control-card">
+              <span>FUE</span>
+              <input id="score_strength" type="number" value="13" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('strength', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('strength', +1)">+</button>
               </div>
-              <div class="ability-control-card">
-                <span>DES</span>
-                <input id="score_dexterity" type="number" value="15" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('dexterity', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('dexterity', +1)">+</button>
-                </div>
-                <b id="mod_dexterity">+2</b>
-              </div>
-              <div class="ability-control-card">
-                <span>CON</span>
-                <input id="score_constitution" type="number" value="15" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('constitution', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('constitution', +1)">+</button>
-                </div>
-                <b id="mod_constitution">+2</b>
-              </div>
-              <div class="ability-control-card">
-                <span>INT</span>
-                <input id="score_intelligence" type="number" value="13" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('intelligence', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('intelligence', +1)">+</button>
-                </div>
-                <b id="mod_intelligence">+1</b>
-              </div>
-              <div class="ability-control-card">
-                <span>SAB</span>
-                <input id="score_wisdom" type="number" value="13" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('wisdom', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('wisdom', +1)">+</button>
-                </div>
-                <b id="mod_wisdom">+1</b>
-              </div>
-              <div class="ability-control-card">
-                <span>CAR</span>
-                <input id="score_charisma" type="number" value="20" readonly>
-                <div class="stepper-row">
-                  <button class="stepper-btn" onclick="stepStat('charisma', -1)">−</button>
-                  <button class="stepper-btn" onclick="stepStat('charisma', +1)">+</button>
-                </div>
-                <b id="mod_charisma">+5</b>
-              </div>
+              <b id="mod_strength">+1</b>
             </div>
-          </div>
-
-          <!-- Columna Derecha: Tiradas de Salvación Interactivas Directas -->
-          <div class="sheet-card" style="margin-bottom:0;">
-            <div class="panel-title" style="margin-bottom:8px;">
-              <span>TIRADAS DE SALVACIÓN</span>
-              <small>Toca para tirar dado</small>
+            <div class="ability-control-card">
+              <span>DES</span>
+              <input id="score_dexterity" type="number" value="15" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('dexterity', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('dexterity', +1)">+</button>
+              </div>
+              <b id="mod_dexterity">+2</b>
             </div>
-            <div class="saving-throws-vertical-list" id="savingThrowsList">
-              <div onclick="rollSavingThrow('Fuerza', 1)"><span>Fuerza</span><b id="st_fue_val">+1</b></div>
-              <div onclick="rollSavingThrow('Destreza', 2)"><span>Destreza</span><b id="st_des_val">+2</b></div>
-              <div onclick="rollSavingThrow('Constitución', 2)"><span>Constitución</span><b id="st_con_val">+2</b></div>
-              <div onclick="rollSavingThrow('Inteligencia', 1)"><span>Inteligencia</span><b id="st_int_val">+1</b></div>
-              <div onclick="rollSavingThrow('Sabiduría', 4)" style="border-color:var(--bronze);"><span>Sabiduría ✦</span><b id="st_sab_val">+4</b></div>
-              <div onclick="rollSavingThrow('Carisma', 8)" style="border-color:var(--bronze);"><span>Carisma ✦</span><b id="st_car_val">+8</b></div>
+            <div class="ability-control-card">
+              <span>CON</span>
+              <input id="score_constitution" type="number" value="15" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('constitution', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('constitution', +1)">+</button>
+              </div>
+              <b id="mod_constitution">+2</b>
+            </div>
+            <div class="ability-control-card">
+              <span>INT</span>
+              <input id="score_intelligence" type="number" value="13" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('intelligence', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('intelligence', +1)">+</button>
+              </div>
+              <b id="mod_intelligence">+1</b>
+            </div>
+            <div class="ability-control-card">
+              <span>SAB</span>
+              <input id="score_wisdom" type="number" value="13" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('wisdom', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('wisdom', +1)">+</button>
+              </div>
+              <b id="mod_wisdom">+1</b>
+            </div>
+            <div class="ability-control-card">
+              <span>CAR</span>
+              <input id="score_charisma" type="number" value="20" readonly>
+              <div class="stepper-row">
+                <button class="stepper-btn" onclick="stepStat('charisma', -1)">−</button>
+                <button class="stepper-btn" onclick="stepStat('charisma', +1)">+</button>
+              </div>
+              <b id="mod_charisma">+5</b>
             </div>
           </div>
         </div>
 
-        <!-- Tabla de Ataques -->
-        <div class="sheet-card" style="margin-top:12px;">
+        <!-- TABLA DE ATAQUES -->
+        <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:8px;">
             <span>ATAQUES PRINCIPALES</span>
             <small>Toca cualquier fila para tirar dado</small>
@@ -266,7 +291,7 @@
           </div>
         </div>
 
-        <!-- Habilidades Interactivas -->
+        <!-- HABILIDADES -->
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:8px;">
             <span>HABILIDADES (18 OFICIALES)</span>
@@ -275,7 +300,7 @@
           <div class="skill-list" id="fullSkillsList"></div>
         </div>
 
-        <!-- Resultado de Tiradas de Dados -->
+        <!-- RESULTADO DE TIRADAS -->
         <div id="rollResultBox" class="roll-result-card" style="display:none;">
           <span id="rollSkillTitle" class="eyebrow">TIRADA</span>
           <div id="rollMath" class="roll-total">Resultado: 0</div>
@@ -285,36 +310,150 @@
       </section>
 
       <!-- =========================================================
-           2. PESTAÑA: RASGOS
+           2. RASGOS PRÁCTICOS & SOCIALES (COMPLETO)
       ========================================================= -->
-      <section id="tab-feats" class="tab-panel">
+      <section id="tab-traits" class="tab-panel">
+
         <div class="sheet-card">
-          <h3>Rasgos de Raza: Aasimar Caído</h3>
-          <div id="racialTraitsList" class="item-list"></div>
+          <div class="panel-title">
+            <span>🎭 SITUACIONES SOCIALES & TRASFONDO</span>
+            <small>Utilidades en puertos, tabernas y viajes</small>
+          </div>
+          <div class="item-list" style="margin-top:8px;">
+            <div class="item-row trait-active-card">
+              <div>
+                <strong>Pasaje Marítimo (Marinero)</strong>
+                <span>Puedes asegurar viaje gratis en barco para ti y tu grupo sirviendo a la tripulación.</span>
+              </div>
+              <button class="secondary-action" onclick="useTraitAction('passage')">📜 Negociar Pasaje</button>
+            </div>
+
+            <div class="item-row trait-active-card">
+              <div>
+                <strong>Pelea de Taberna (Social / Rumores)</strong>
+                <span>Una buena pelea es tu forma de conocer gente y ganarte el respeto rudo de marineros y contrabandistas.</span>
+              </div>
+              <button class="secondary-action" onclick="rollSkillCheck('Intimidar', calcMod(state.character.charisma))">⚡ Intimidar</button>
+            </div>
+          </div>
         </div>
 
         <div class="sheet-card">
-          <h3>Rasgos de Clase: Brujo (El Filo Maléfico)</h3>
-          <div id="classTraitsList" class="item-list"></div>
+          <div class="panel-title">
+            <span>✨ RASGOS ACTIVOS DE RAZA (AASIMAR CAÍDO)</span>
+            <small>Poderes celestiales oscurecidos</small>
+          </div>
+          <div class="item-list" style="margin-top:8px;">
+            <div class="item-row trait-active-card">
+              <div>
+                <strong>Mortaja Necrótica (Acción)</strong>
+                <span>Alas esqueléticas y ojos de sombra. Asusta a criaturas a 10 ft (CD <b id="necroticDcDisplay">16</b>) y suma +<b id="necroticDmgDisplay">6</b> daño necrótico por turno.</span>
+              </div>
+              <button class="secondary-action" onclick="useNecroticShroud()">💀 Desatar Alas</button>
+            </div>
+
+            <div class="item-row trait-active-card">
+              <div>
+                <strong>Manos Curativas (Acción)</strong>
+                <span>Toca a una criatura para sanar tantos PV como tu nivel (<b id="healingHandsValue">6</b> PV). (1 uso por Descanso Largo).</span>
+              </div>
+              <button id="btnHealingHands" class="secondary-action" onclick="useHealingHands()">💚 Curar 6 PV</button>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Portador de Luz (Truco)</strong>
+                <span>Haces que un objeto emita luz mágica brillante en 20 pies y tenue en 20 pies adicionales.</span>
+              </div>
+              <span class="tag">UTILIDAD</span>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Resistencia Celestial & Visión en la Oscuridad</strong>
+                <span>Resistencia a daño Necrótico y Radiante. Visión clara hasta 60 pies en penumbra o tinieblas.</span>
+              </div>
+              <span class="tag">PASIVO</span>
+            </div>
+          </div>
         </div>
 
         <div class="sheet-card">
-          <h3>Dotes y Reglas Caseras</h3>
-          <div id="customTraitsList" class="item-list"></div>
+          <div class="panel-title">
+            <span>🗡 FILO MALÉFICO & PACTO DEL FILO</span>
+            <small>Rasgos marciales y pacto con la sombra</small>
+          </div>
+          <div class="item-list" style="margin-top:8px;">
+            <div class="item-row">
+              <div>
+                <strong>Guerrero Maléfico (Hex Warrior)</strong>
+                <span>Tus ataques con armas del pacto usan tu bonificador de Carisma (+5) en lugar de Fuerza o Destreza.</span>
+              </div>
+              <span class="tag">CARISMA</span>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Pacto del Filo & Arma Mejorada</strong>
+                <span>Puedes invocar armas que se consideran mágicas con bono +1 y sirven como foco arcano.</span>
+              </div>
+              <span class="tag">+1 BONO</span>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Filo Sediento (Thirsting Blade)</strong>
+                <span>Atacas dos veces por turno al realizar la acción de Ataque con tu arma de pacto.</span>
+              </div>
+              <span class="tag">2 ATAQUES</span>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Castigo Arcano (Eldritch Smite)</strong>
+                <span>Al impactar, puedes consumir un espacio de pacto para infligir 4d8 de fuerza y derribar al enemigo.</span>
+              </div>
+              <span class="tag">4d8 FUERZA</span>
+            </div>
+          </div>
         </div>
+
+        <div class="sheet-card">
+          <div class="panel-title">
+            <span>📜 DOTES & REGLAS ESPECIALES</span>
+            <small>Marcas y dones adquiridos</small>
+          </div>
+          <div class="item-list" style="margin-top:8px;">
+            <div class="item-row">
+              <div>
+                <strong>Toque Feérico (Fey Touched)</strong>
+                <span>Aprendes el conjuro Paso Brumoso y Susurros Disonantes gracias a tu conexión con el Feywild.</span>
+              </div>
+              <span class="tag">DOTE</span>
+            </div>
+
+            <div class="item-row">
+              <div>
+                <strong>Marca de Lady D. (Dama del Dolor)</strong>
+                <span>Contacto con seres de otras dimensiones provoca dolor. Exige sufrimiento a cambio de poder (otorga *Infligir Heridas*).</span>
+              </div>
+              <span class="tag">LADY D.</span>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <!-- =========================================================
-           3. PESTAÑA: EQUIPO
+           3. EQUIPO
       ========================================================= -->
-      <section id="tab-items" class="tab-panel">
+      <section id="tab-equipment" class="tab-panel">
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:10px;">
             <span>EQUIPO & INVENTARIO INTERACTIVO</span>
             <small>Toca el estado para alternar (afecta la CA)</small>
           </div>
 
-          <!-- Monedero -->
           <div class="currency-grid" style="margin-bottom:14px;">
             <label>Oro (PO)<input id="goldInput" type="number" min="0" value="599"></label>
             <label>Plata (PP)<input id="silverInput" type="number" min="0" value="99"></label>
@@ -322,7 +461,6 @@
           </div>
           <button id="saveCurrencyBtn" class="secondary-action full" style="margin-bottom:14px;">Guardar Monedas</button>
 
-          <!-- Agregar nuevo objeto -->
           <div style="display:flex; gap:6px; margin-bottom:12px;">
             <input id="newItemName" placeholder="Nombre del objeto..." style="flex:2;">
             <input id="newItemQty" type="number" min="1" value="1" style="flex:1;" placeholder="Cant">
@@ -334,9 +472,9 @@
       </section>
 
       <!-- =========================================================
-           4. PESTAÑA: CONJUROS
+           4. CONJUROS
       ========================================================= -->
-      <section id="tab-magic" class="tab-panel">
+      <section id="tab-spells" class="tab-panel">
         <div class="sheet-card">
           <div class="panel-title">
             <span>MAGIA DEL PACTO</span>
@@ -367,7 +505,7 @@
       </section>
 
       <!-- =========================================================
-           5. PESTAÑA: COMPAÑEROS
+           5. COMPAÑEROS
       ========================================================= -->
       <section id="tab-companions" class="tab-panel">
         <!-- Pourcoon -->
@@ -414,13 +552,13 @@
             <div><span>Vuelo</span><b>50 ft</b></div>
           </div>
 
-          <p class="small-note">💀 <b>Toque Drenador:</b> Ataque con tu modificador de Carisma (<span id="specterModText">+5</span>). 3d6 daño necrótico.</p>
+          <p class="small-note">💀 <b>Toque Drenador:</b> Ataque con modificador de Carisma (+5). 3d6 daño necrótico.</p>
           <p class="small-note">⏳ <b>Duración:</b> Hasta Descanso Largo. PV temp = mitad de nivel de Brujo (<span id="specterFormulaText">3 PV</span>).</p>
         </div>
       </section>
 
       <!-- =========================================================
-           6. PESTAÑA: DIARIO / CAMPAÑA
+           6. DIARIO / CAMPAÑA
       ========================================================= -->
       <section id="tab-diary" class="tab-panel">
         <div class="sheet-card">
@@ -486,7 +624,6 @@
 
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>
