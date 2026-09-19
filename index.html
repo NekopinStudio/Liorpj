@@ -12,7 +12,7 @@
 <body>
   <div id="app">
 
-    <!-- CABECERA -->
+    <!-- CABECERA PRINCIPAL -->
     <header class="topbar">
       <div class="header-info">
         <div class="avatar-ring">
@@ -31,7 +31,7 @@
       </div>
     </header>
 
-    <!-- PESTAÑAS -->
+    <!-- PESTAÑAS FLOTANTES -->
     <nav class="sheet-tabs" aria-label="Navegación principal">
       <button class="sheet-tab-btn active" data-tab="tab-info">Información</button>
       <button class="sheet-tab-btn" data-tab="tab-traits">Rasgos</button>
@@ -44,82 +44,109 @@
     <main>
 
       <!-- =========================================================
-           1. INFORMACIÓN Y COMBATE
+           1. PESTAÑA: INFORMACIÓN & COMBATE TÁCTICO
       ========================================================= -->
       <section id="tab-info" class="tab-panel active">
 
-        <!-- GUÍA DE TEMPO -->
+        <!-- GUÍA DE TEMPO & CONCENTRACIÓN ENRIQUECIDA -->
         <div class="tactical-banner">
           <div class="panel-title">
-            <span>⚔ GUÍA DE TEMPO Y SECUENCIA DE ATAQUE</span>
-            <small>Brujo del Filo Maléfico</small>
+            <span>⚔ GUÍA DE TEMPO & SECUENCIA DE COMBATE</span>
+            <small>Optimización Hexblade 5e</small>
           </div>
           <div class="combo-steps">
             <div class="combo-step">
               <span class="step-num">1</span>
-              <div><strong>Acción Adicional:</strong> Activar Maldición del Filo (Crítico 19-20, +<span id="guideProfDmg">3</span> daño).</div>
+              <div>
+                <strong>Apertura / Setup (Acción Adicional):</strong> Activar <em>Maldición del Filo</em> en el objetivo clave (Crítico 19-20, +<span id="guideProfDmg">3</span> daño, cura al morir). Si es a distancia, preparar <em>Arma elemental</em> o <em>Hex</em> (Concentración).
+              </div>
             </div>
             <div class="combo-step">
               <span class="step-num">2</span>
-              <div><strong>Acción de Ataque:</strong> Ejecutar 2 ataques (Filo Sediento). Usa Carisma (+5) para impactar.</div>
+              <div>
+                <strong>Ofensiva Principal (Acción de Ataque):</strong> Realizar 2 ataques con arma de pacto (Pistola/Mosquete o Arpón/Espada) usando Carisma (+5) al impacto y daño gracias a <em>Guerrero Maléfico</em>.
+              </div>
             </div>
             <div class="combo-step">
               <span class="step-num">3</span>
-              <div><strong>Al Impactar:</strong> Si es crítico o enemigo peligroso, declarar Eldritch Smite (+4d8 fuerza).</div>
+              <div>
+                <strong>Impacto / Burst (Eldritch Smite):</strong> Si sale crítico (19-20) o necesitas derribar a un objetivo peligroso, consume slot para +4d8 fuerza (¡u 8d8 en crítico!) y derriba automáticamente.
+              </div>
+            </div>
+            <div class="combo-step">
+              <span class="step-num">4</span>
+              <div>
+                <strong>Reacción Defensiva:</strong> Reserva tu reacción para <em>Escudo (+5 CA)</em> si te atacan, o para contraatacar con <em>Armadura de Agathys</em> (15 frío).
+              </div>
             </div>
           </div>
 
+          <div class="concentration-bar" id="concentrationDisplay">
+            <span>🔮 Concentración: <strong>Ninguna</strong></span>
+            <button id="btnBreakConcentration" class="tiny-button" style="display:none; color:var(--danger);">✕ Romper</button>
+          </div>
+
           <div class="prep-grid" style="margin-top:10px;">
-            <button class="prep-button" data-combat-toggle="hexblade_curse_active">
+            <button class="prep-button" id="btnHexbladeCurseToggle" data-combat-toggle="hexblade_curse_active">
               <span class="prep-check" id="check_hexblade_curse_active">○</span>
               <span>
-                <b>Maldición del Filo Maléfico</b>
-                <small>Rango crítico 19-20 · +<span id="curseDmgBonus">3</span> daño · Sana <span id="curseHealBonus">11</span> PV al morir</small>
+                <b>Maldición del Filo Maléfico (1/Descanso)</b>
+                <small id="curseStatusText">Crítico 19-20 · +<span id="curseDmgBonus">3</span> daño · Sana <span id="curseHealBonus">11</span> PV al morir</small>
               </span>
             </button>
             <button class="prep-button" data-combat-toggle="elemental_weapon_active">
               <span class="prep-check" id="check_elemental_weapon_active">○</span>
               <span>
-                <b>Arma elemental (Slot Nv 3)</b>
+                <b>Arma elemental (Concentración · Slot Nv 3)</b>
                 <small>+1 a tirada de ataque · +1d4 daño elemental</small>
               </span>
             </button>
           </div>
         </div>
 
-        <!-- CUADRÍCULA VITAL REESTRUCTURADA -->
+        <!-- CUADRÍCULA VITAL CON DEATH SAVES HORIZONTALES -->
         <div class="stat-grid four combat-vitals-grid">
           
+          <!-- PUNTOS DE GOLPE + PV TEMPORALES -->
           <div class="stat-card hp-card">
-            <span>PUNTOS DE GOLPE</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+              <span>PUNTOS DE GOLPE</span>
+              <span class="temp-hp-badge" id="tempHpBadge" style="display:none;">+0 Temp</span>
+            </div>
             <strong id="hpValue">48 / 48</strong>
             <div class="hp-bar"><div id="hpBar" style="width: 100%;"></div></div>
             <div class="hp-controls-quad">
-              <button class="turn-button hp-step-btn" id="hpMinus10Btn">-10 PV</button>
-              <button class="turn-button hp-step-btn" id="hpMinusBtn">-1 PV</button>
-              <button class="turn-button hp-step-btn" id="hpPlusBtn">+1 PV</button>
-              <button class="turn-button hp-step-btn" id="hpPlus10Btn">+10 PV</button>
+              <button class="turn-button hp-step-btn" id="hpMinus10Btn">-10</button>
+              <button class="turn-button hp-step-btn" id="hpMinusBtn">-1</button>
+              <button class="turn-button hp-step-btn" id="hpPlusBtn">+1</button>
+              <button class="turn-button hp-step-btn" id="hpPlus10Btn">+10</button>
+            </div>
+            <div style="margin-top:6px; display:flex; gap:6px; width:100%;">
+              <button class="turn-button" id="btnSetTempHp" style="font-size:10px; padding:4px;">🛡 Asignar PV Temp</button>
             </div>
           </div>
 
+          <!-- CLASE DE ARMADURA CON DESGLOSE -->
           <div class="stat-card ac-card">
             <span>CLASE DE ARMADURA</span>
             <strong id="combatAC">12</strong>
             <small id="acBreakdownText" class="ac-breakdown">Base 10 + DES (+2)</small>
           </div>
 
+          <!-- INICIATIVA CENTRADA -->
           <div class="stat-card init-card">
             <span>INICIATIVA</span>
             <strong id="combatInit">+2</strong>
             <small style="color:var(--muted); font-size:10px;">Modificador DES</small>
           </div>
 
+          <!-- VELOCIDAD -->
           <div class="stat-card speed-card">
             <span>VELOCIDAD</span>
             <strong id="combatSpeed">30 ft</strong>
           </div>
 
-          <!-- SALVACIÓN DE MUERTE EN EL ESPACIO HORIZONTAL -->
+          <!-- SALVACIONES DE MUERTE HORIZONTALES -->
           <div class="stat-card death-saves-horizontal-card">
             <div class="death-saves-horizontal-header">
               <span>SALVACIONES DE MUERTE (0 PV)</span>
@@ -153,6 +180,21 @@
 
         </div>
 
+        <!-- MUNICIÓN DE ARMAS DE FUEGO -->
+        <div class="sheet-card ammo-tracker-card">
+          <div class="panel-title">
+            <span>🔫 CARTUCHERA & MUNICIÓN (ARMAS DE FUEGO)</span>
+            <small>Persistente en base de datos</small>
+          </div>
+          <div class="ammo-controls">
+            <span>Balas disponibles: <strong id="ammoCountDisplay">20</strong></span>
+            <div style="display:flex; gap:6px;">
+              <button class="turn-button" id="btnShootAmmo" style="padding:4px 8px;">💥 Disparar (-1)</button>
+              <button class="turn-button" id="btnReloadAmmo" style="padding:4px 8px;">🔄 Recargar (+10)</button>
+            </div>
+          </div>
+        </div>
+
         <!-- DESCANSOS -->
         <div class="sheet-card rest-card">
           <div class="panel-title" style="margin-bottom:8px;">
@@ -164,14 +206,14 @@
               <span class="rest-icon">⏳</span>
               <div>
                 <strong>Descanso Corto (1h)</strong>
-                <small>Restaura todos los espacios de pacto (2/2)</small>
+                <small>Restaura espacios de pacto y Maldición del Filo</small>
               </div>
             </button>
             <button id="btnLongRest" class="rest-button long-rest">
               <span class="rest-icon">⛺</span>
               <div>
                 <strong>Descanso Largo (8h)</strong>
-                <small>Restaura 100% de PV (48/48) y recursos</small>
+                <small>Restaura 100% PV (48/48), slots y rasgos diarios</small>
               </div>
             </button>
           </div>
@@ -209,7 +251,7 @@
           </div>
         </div>
 
-        <!-- CARACTERÍSTICAS (FILA DE 6) -->
+        <!-- CARACTERÍSTICAS EN FILA COMPLETA -->
         <div class="sheet-card">
           <div class="panel-title"><span>CARACTERÍSTICAS PRINCIPALES</span></div>
           <div class="ability-grid six-cols">
@@ -270,10 +312,10 @@
           </div>
         </div>
 
-        <!-- TABLA DE ATAQUES -->
+        <!-- TABLA DE ATAQUES REACTIVA (SINCRONIZADA CON EQUIPO) -->
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:8px;">
-            <span>ATAQUES PRINCIPALES</span>
+            <span>ATAQUES PRINCIPALES (ARMAS ACTIVAS / EQUIPADAS)</span>
             <small>Toca cualquier fila para tirar dado</small>
           </div>
           <div class="table-responsive">
@@ -295,24 +337,36 @@
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:8px;">
             <span>HABILIDADES (18 OFICIALES)</span>
-            <small>Toca para tirar · ✦ Competencia · ✦✦ Pericia</small>
+            <small>Toca para tirar dado en ventana flotante</small>
           </div>
           <div class="skill-list" id="fullSkillsList"></div>
-        </div>
-
-        <!-- RESULTADO DE TIRADAS -->
-        <div id="rollResultBox" class="roll-result-card" style="display:none;">
-          <span id="rollSkillTitle" class="eyebrow">TIRADA</span>
-          <div id="rollMath" class="roll-total">Resultado: 0</div>
-          <small id="rollDetail" style="color:var(--muted);"></small>
         </div>
 
       </section>
 
       <!-- =========================================================
-           2. RASGOS PRÁCTICOS & SOCIALES (COMPLETO)
+           2. RASGOS PRÁCTICOS & SOCIALES (CON LADY D CONFIGURABLE)
       ========================================================= -->
       <section id="tab-traits" class="tab-panel">
+
+        <!-- CONFIGURADOR DE LAS 4 MODALIDADES DE LADY D -->
+        <div class="sheet-card" style="border-left: 4px solid var(--crimson);">
+          <div class="panel-title">
+            <span>◈ MARCA DE LADY D. (CONDICIÓN DIARIA)</span>
+            <small>Regla casera de la Dama del Dolor</small>
+          </div>
+          <p style="font-size:12px; color:var(--muted); margin:4px 0 8px;">
+            Selecciona la modalidad de canalización de <em>Infligir heridas</em> según la tirada del día:
+          </p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="ladyDModeSelect" onchange="changeLadyDMode(this.value)" style="flex:1;">
+              <option value="cantrip_free">1. Truco Puro (Ilimitado · Coste 0 · Sin daño personal)</option>
+              <option value="cantrip_damage">2. Pacto Doloroso (Ilimitado · Coste 0 · Con contra tirada de daño)</option>
+              <option value="normal_slot">3. Normal (Consume espacio de pacto · Sin daño personal)</option>
+              <option value="slot_plus_damage">4. Sobrecarga (Consume espacio de pacto + Daño personal)</option>
+            </select>
+          </div>
+        </div>
 
         <div class="sheet-card">
           <div class="panel-title">
@@ -331,7 +385,7 @@
             <div class="item-row trait-active-card">
               <div>
                 <strong>Pelea de Taberna (Social / Rumores)</strong>
-                <span>Una buena pelea es tu forma de conocer gente y ganarte el respeto rudo de marineros y contrabandistas.</span>
+                <span>Una pelea es tu forma de conocer gente y ganarte el respeto de contrabandistas.</span>
               </div>
               <button class="secondary-action" onclick="rollSkillCheck('Intimidar', calcMod(state.character.charisma))">⚡ Intimidar</button>
             </div>
@@ -346,16 +400,16 @@
           <div class="item-list" style="margin-top:8px;">
             <div class="item-row trait-active-card">
               <div>
-                <strong>Mortaja Necrótica (Acción)</strong>
-                <span>Alas esqueléticas y ojos de sombra. Asusta a criaturas a 10 ft (CD <b id="necroticDcDisplay">16</b>) y suma +<b id="necroticDmgDisplay">6</b> daño necrótico por turno.</span>
+                <strong>Mortaja Necrótica (1/Descanso Largo)</strong>
+                <span>Alas esqueléticas y ojos de sombra. Asusta en 10 ft (CD <b id="necroticDcDisplay">16</b>) y suma +<b id="necroticDmgDisplay">6</b> daño necrótico.</span>
               </div>
-              <button class="secondary-action" onclick="useNecroticShroud()">💀 Desatar Alas</button>
+              <button id="btnNecroticShroud" class="secondary-action" onclick="useNecroticShroud()">💀 Desatar Alas</button>
             </div>
 
             <div class="item-row trait-active-card">
               <div>
-                <strong>Manos Curativas (Acción)</strong>
-                <span>Toca a una criatura para sanar tantos PV como tu nivel (<b id="healingHandsValue">6</b> PV). (1 uso por Descanso Largo).</span>
+                <strong>Manos Curativas (1/Descanso Largo)</strong>
+                <span>Toca para sanar tantos PV como tu nivel (<b id="healingHandsValue">6</b> PV).</span>
               </div>
               <button id="btnHealingHands" class="secondary-action" onclick="useHealingHands()">💚 Curar 6 PV</button>
             </div>
@@ -363,7 +417,7 @@
             <div class="item-row">
               <div>
                 <strong>Portador de Luz (Truco)</strong>
-                <span>Haces que un objeto emita luz mágica brillante en 20 pies y tenue en 20 pies adicionales.</span>
+                <span>Haces que un objeto emita luz mágica brillante en 20 pies y tenue en 20 adicionales.</span>
               </div>
               <span class="tag">UTILIDAD</span>
             </div>
@@ -387,7 +441,7 @@
             <div class="item-row">
               <div>
                 <strong>Guerrero Maléfico (Hex Warrior)</strong>
-                <span>Tus ataques con armas del pacto usan tu bonificador de Carisma (+5) en lugar de Fuerza o Destreza.</span>
+                <span>Tus ataques con armas del pacto usan Carisma (+5) en vez de Fuerza o Destreza.</span>
               </div>
               <span class="tag">CARISMA</span>
             </div>
@@ -395,7 +449,7 @@
             <div class="item-row">
               <div>
                 <strong>Pacto del Filo & Arma Mejorada</strong>
-                <span>Puedes invocar armas que se consideran mágicas con bono +1 y sirven como foco arcano.</span>
+                <span>Armas mágicas con bono +1 que funcionan como foco arcano.</span>
               </div>
               <span class="tag">+1 BONO</span>
             </div>
@@ -403,7 +457,7 @@
             <div class="item-row">
               <div>
                 <strong>Filo Sediento (Thirsting Blade)</strong>
-                <span>Atacas dos veces por turno al realizar la acción de Ataque con tu arma de pacto.</span>
+                <span>Atacas dos veces por turno al realizar la acción de Ataque con arma de pacto.</span>
               </div>
               <span class="tag">2 ATAQUES</span>
             </div>
@@ -411,7 +465,7 @@
             <div class="item-row">
               <div>
                 <strong>Castigo Arcano (Eldritch Smite)</strong>
-                <span>Al impactar, puedes consumir un espacio de pacto para infligir 4d8 de fuerza y derribar al enemigo.</span>
+                <span>Al impactar, consume slot para +4d8 fuerza y derriba al enemigo sin tirada de salvación.</span>
               </div>
               <span class="tag">4d8 FUERZA</span>
             </div>
@@ -427,17 +481,9 @@
             <div class="item-row">
               <div>
                 <strong>Toque Feérico (Fey Touched)</strong>
-                <span>Aprendes el conjuro Paso Brumoso y Susurros Disonantes gracias a tu conexión con el Feywild.</span>
+                <span>Aprendes Paso Brumoso y Susurros Disonantes.</span>
               </div>
               <span class="tag">DOTE</span>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Marca de Lady D. (Dama del Dolor)</strong>
-                <span>Contacto con seres de otras dimensiones provoca dolor. Exige sufrimiento a cambio de poder (otorga *Infligir Heridas*).</span>
-              </div>
-              <span class="tag">LADY D.</span>
             </div>
           </div>
         </div>
@@ -445,13 +491,13 @@
       </section>
 
       <!-- =========================================================
-           3. EQUIPO
+           3. EQUIPO (CON BORRADO Y SINCRONIZACIÓN DE ARMAS)
       ========================================================= -->
       <section id="tab-equipment" class="tab-panel">
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:10px;">
             <span>EQUIPO & INVENTARIO INTERACTIVO</span>
-            <small>Toca el estado para alternar (afecta la CA)</small>
+            <small>Toca el estado para alternar (afecta la CA y los ataques)</small>
           </div>
 
           <div class="currency-grid" style="margin-bottom:14px;">
@@ -485,9 +531,6 @@
             <div class="stat-card"><span>CD SALVACIÓN</span><strong id="magicDCDisplay">16</strong></div>
             <div class="stat-card"><span>BONO ATAQUE</span><strong id="magicAtkDisplay">+8</strong></div>
           </div>
-          <button id="btnMagicShortRest" class="turn-button" style="margin-top:10px; border-color:var(--bronze);">
-            ⏳ Restaurar Espacios de Pacto (Descanso Corto)
-          </button>
         </div>
 
         <div class="sheet-card">
@@ -505,7 +548,7 @@
       </section>
 
       <!-- =========================================================
-           5. COMPAÑEROS
+           5. COMPAÑEROS (ESPECTRO CON 3 ESTADOS)
       ========================================================= -->
       <section id="tab-companions" class="tab-panel">
         <!-- Pourcoon -->
@@ -535,14 +578,16 @@
           <p class="small-note">💣 <b>Regla casera:</b> Reacción «se muere solito» activada con crítico de 12.</p>
         </div>
 
-        <!-- Espectro Maldito -->
+        <!-- Espectro Maldito: 3 ESTADOS (EN REPOSO / CONVOCADO / CONSUMIDO) -->
         <div class="sheet-card">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <strong style="font-size:16px; color:#c23644;">Espectro del Filo (Accursed Specter)</strong>
               <p style="margin:2px 0; font-size:11px; color:var(--muted);">Rasgo de Subclase Nivel 6 · No-muerto Mediano</p>
             </div>
-            <span class="tag" style="color:var(--bronze);">VÍNCULO</span>
+            <button id="btnSpecterState" class="secondary-action" onclick="cycleSpecterState()">
+              💤 En reposo
+            </button>
           </div>
 
           <div class="companion-grid" style="margin:10px 0;">
@@ -553,18 +598,18 @@
           </div>
 
           <p class="small-note">💀 <b>Toque Drenador:</b> Ataque con modificador de Carisma (+5). 3d6 daño necrótico.</p>
-          <p class="small-note">⏳ <b>Duración:</b> Hasta Descanso Largo. PV temp = mitad de nivel de Brujo (<span id="specterFormulaText">3 PV</span>).</p>
+          <p class="small-note">⏳ <b>Ciclo:</b> En reposo (disponible) ➔ Convocado (en batalla) ➔ Consumido (muerto hasta descanso largo).</p>
         </div>
       </section>
 
       <!-- =========================================================
-           6. DIARIO / CAMPAÑA
+           6. DIARIO / CAMPAÑA (GUARDADO GARANTIZADO)
       ========================================================= -->
       <section id="tab-diary" class="tab-panel">
         <div class="sheet-card">
           <div class="panel-title" style="margin-bottom:8px;">
             <span>BITÁCORA DE SALTMARSH</span>
-            <small>Nueva Entrada</small>
+            <small>Nueva Entrada Sincronizada</small>
           </div>
           <div style="display:grid; gap:8px;">
             <select id="newNoteType">
@@ -572,9 +617,9 @@
               <option value="npc">Personaje / Facción</option>
               <option value="quest">Misión / Pista</option>
             </select>
-            <input id="newNoteTitle" placeholder="Título...">
+            <input id="newNoteTitle" placeholder="Título de la entrada...">
             <textarea id="newNoteContent" placeholder="Notas, acuerdos o descubrimientos..."></textarea>
-            <button id="addNoteBtn" class="main-action" style="padding:10px;">Guardar Nota</button>
+            <button id="addNoteBtn" class="main-action" style="padding:10px;">✦ Guardar en Bitácora</button>
           </div>
         </div>
 
@@ -593,7 +638,20 @@
 
     </main>
 
-    <!-- VENTANA FLOTANTE DE CONJUROS -->
+    <!-- MODAL FLOTANTE DE RESULTADOS DE DADOS -->
+    <div id="rollModal" class="modal-backdrop" onclick="closeRollModal(event)">
+      <div class="modal-card roll-modal-card" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+          <span id="rollModalTitle" class="eyebrow">TIRADA DE DADOS</span>
+          <button class="tiny-button" style="font-size:24px; line-height:1; padding:4px;" onclick="closeRollModal(event)">✕</button>
+        </div>
+        <div id="rollModalTotal" class="roll-total">0</div>
+        <p id="rollModalDetail" style="color:var(--muted); font-size:13px; margin:8px 0;"></p>
+        <button class="turn-button" style="margin-top:12px;" onclick="closeRollModal(event)">Aceptar</button>
+      </div>
+    </div>
+
+    <!-- MODAL FLOTANTE DE CONJUROS -->
     <div id="spellModal" class="modal-backdrop" onclick="closeSpellModal(event)">
       <div class="modal-card" id="spellModalCard" onclick="event.stopPropagation()">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
