@@ -1,6 +1,6 @@
-/* =========================================================
-   LIOR KUROGANE — MOTOR COMPLETO D&D 5E & SUPABASE
-========================================================= */
+/* ==========================================================================
+   LIOR KUROGANE — MOTOR DE PERSONAJE D&D 5E
+   ========================================================================== */
 
 const SUPABASE_URL = "https://zfuwwtjjamxhpzukbaaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_1K4B3vdMrBSclaTet_thcg_5a1PmciM";
@@ -8,202 +8,1229 @@ const SUPABASE_KEY = "sb_publishable_1K4B3vdMrBSclaTet_thcg_5a1PmciM";
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const OFFICIAL_ATTACKS_BASE = [
-  { name: "Pistola del pacto", isPact: true, isFirearm: true, dmgDie: "1d10", dmgType: "Perforante (Distancia 30/90)" },
-  { name: "Mosquete del pacto", isPact: true, isFirearm: true, dmgDie: "1d12", dmgType: "Perforante (Distancia 40/120)" },
-  { name: "Arpón del pacto", isPact: true, isFirearm: false, dmgDie: "1d10", dmgType: "Penetrante (Reduce 10 ft vel)" },
+const SKILL_DEFINITIONS = {
+  acrobatics:     { name: "Acrobacias",       ability: "dexterity" },
+  arcana:         { name: "Arcanos",          ability: "intelligence" },
+  athletics:      { name: "Atletismo",        ability: "strength" },
+  deception:      { name: "Engañar",          ability: "charisma" },
+  history:        { name: "Historia",         ability: "intelligence" },
+  insight:        { name: "Perspicacia",      ability: "wisdom" },
+  intimidation:   { name: "Intimidar",        ability: "charisma" },
+  investigation:  { name: "Investigación",    ability: "intelligence" },
+  medicine:       { name: "Medicina",         ability: "wisdom" },
+  nature:         { name: "Naturaleza",       ability: "intelligence" },
+  perception:     { name: "Percepción",       ability: "wisdom" },
+  performance:    { name: "Interpretación",   ability: "charisma" },
+  persuasion:     { name: "Persuasión",       ability: "charisma" },
+  religion:       { name: "Religión",         ability: "intelligence" },
+  sleightOfHand:  { name: "Juego de Manos",   ability: "dexterity" },
+  stealth:        { name: "Sigilo",           ability: "dexterity" },
+  survival:       { name: "Supervivencia",    ability: "wisdom" },
+  animalHandling: { name: "Trato con Animales", ability: "wisdom" }
+};
+
+const OFFICIAL_ATTACKS_CATALOG = [
+  { name: "Pistola del pacto", isPact: true, isFirearm: true, dmgDie: "1d10", dmgType: "Perforante (30/90 ft)" },
+  { name: "Mosquete del pacto", isPact: true, isFirearm: true, dmgDie: "1d12", dmgType: "Perforante (40/120 ft)" },
+  { name: "Arpón del pacto", isPact: true, isFirearm: false, dmgDie: "1d10", dmgType: "Penetrante (-10 ft vel)" },
   { name: "Espada larga platinada", isPact: false, isFirearm: false, dmgDie: "1d8", dmgType: "Cortante (Versátil 1d10)" },
   { name: "Daga", isPact: false, isFirearm: false, dmgDie: "1d4", dmgType: "Perforante (Sutil, Arrojadiza)" },
-  { name: "Red", isPact: false, isFirearm: false, dmgDie: "—", dmgType: "Especial (Apresa objetivo)" },
+  { name: "Red", isPact: false, isFirearm: false, dmgDie: "—", dmgType: "Especial (Apresa)" },
   { name: "Descarga sobrenatural", isPact: false, isSpell: true, dmgDie: "1d10", dmgType: "Fuerza (120 ft)" }
 ];
 
-const OFFICIAL_SPELLS = [
-  { name: "Descarga sobrenatural", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "120 ft", duration: "Instantáneo", damage: "1d10 fuerza por haz", desc: "Rayos independientes por ataque mágico." },
-  { name: "Luz", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "10 ft", duration: "1 hora", damage: "Utilidad", desc: "Objeto emite luz en 20 ft." },
-  { name: "Mano de mago", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "30 ft", duration: "1 minuto", damage: "Utilidad", desc: "Manipula hasta 10 lb de peso." },
-  { name: "Toque helado", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "120 ft", duration: "1 asalto", damage: "2d8 necrótico", desc: "Impide curación al objetivo." },
-  { name: "Armadura de Agathys", level: "Nivel 3", isCantrip: false, concentration: false, time: "1 acción", range: "Personal", duration: "1 hora", damage: "15 frío al atacante", desc: "Otorga 15 PV temporales." },
-  { name: "Escudo", level: "Nivel 1", isCantrip: false, concentration: false, time: "1 reacción", range: "Personal", duration: "1 asalto", damage: "+5 CA", desc: "+5 CA contra el ataque activador." },
-  { name: "Infligir heridas (Lady D.)", level: "Regla Casera", isCantrip: false, concentration: false, time: "1 acción", range: "Toque", duration: "Instantáneo", damage: "3d10 necrótico", desc: "Varía según la condición diaria de Lady D." },
-  { name: "Maleficio (Hex)", level: "Nivel 1", isCantrip: false, concentration: true, time: "1 acción adicional", range: "90 ft", duration: "8 horas", damage: "+1d6 necrótico", desc: "Desventaja en 1 característica." },
-  { name: "Susurros disonantes", level: "Nivel 1", isCantrip: false, concentration: false, time: "1 acción", range: "60 ft", duration: "Instantáneo", damage: "3d6 psíquico", desc: "Fuerza a huir con reacción." },
-  { name: "Castigo marcador", level: "Nivel 2", isCantrip: false, concentration: true, time: "1 acción adicional", range: "Personal", duration: "1 minuto", damage: "+3d6 radiante", desc: "Anula invisibilidad." },
-  { name: "Paso brumoso", level: "Nivel 2", isCantrip: false, concentration: false, time: "1 acción adicional", range: "Personal", duration: "Instantáneo", damage: "Teletransporte", desc: "Hasta 30 ft a espacio visible." },
-  { name: "Arma elemental", level: "Nivel 3", isCantrip: false, concentration: true, time: "1 acción", range: "Toque", duration: "1 hora", damage: "+1 ataque / +1d4 daño", desc: "Vuelve mágica el arma." },
-  { name: "Desplazamiento (Blink)", level: "Nivel 3", isCantrip: false, concentration: false, time: "1 acción", range: "Personal", duration: "1 minuto", damage: "Defensivo", desc: "1d20 con 11+ viaja al etéreo." }
+const OFFICIAL_SPELLS_CATALOG = [
+  { name: "Descarga sobrenatural", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "120 ft", duration: "Instantáneo", damage: "1d10 fuerza por haz", desc: "Rayos independientes por ataque mágico a distancia (+8 al impacto)." },
+  { name: "Luz", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "10 ft", duration: "1 hora", damage: "Utilidad", desc: "Un objeto emite luz brillante en 20 ft y tenue en 20 ft adicionales." },
+  { name: "Mano de mago", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "30 ft", duration: "1 minuto", damage: "Utilidad", desc: "Mano espectral que manipula objetos hasta 10 lb de peso." },
+  { name: "Toque helado", level: "Truco", isCantrip: true, concentration: false, time: "1 acción", range: "120 ft", duration: "1 asalto", damage: "2d8 necrótico", desc: "Ataque a distancia. Si impacta, impide la recuperación de PV al objetivo." },
+  { name: "Armadura de Agathys", level: "Nivel 3", isCantrip: false, concentration: false, time: "1 acción", range: "Personal", duration: "1 hora", damage: "15 frío al atacante", desc: "Otorga 15 PV temporales. Si te golpean cuerpo a cuerpo, el atacante sufre 15 de frío." },
+  { name: "Escudo", level: "Nivel 1", isCantrip: false, concentration: false, time: "1 reacción", range: "Personal", duration: "1 asalto", damage: "+5 CA", desc: "+5 CA contra el ataque activador y anula Proyectil Mágico." },
+  { name: "Infligir heridas", level: "Regla Casera", isCantrip: false, concentration: false, time: "1 acción", range: "Toque", duration: "Instantáneo", damage: "3d10 necrótico", desc: "Canalización variable según la modalidad activa de Lady D." },
+  { name: "Maleficio (Hex)", level: "Nivel 1", isCantrip: false, concentration: true, time: "1 acción adicional", range: "90 ft", duration: "8 horas", damage: "+1d6 necrótico", desc: "+1d6 necrótico por impacto y desventaja en pruebas de 1 característica elegida." },
+  { name: "Susurros disonantes", level: "Nivel 1", isCantrip: false, concentration: false, time: "1 acción", range: "60 ft", duration: "Instantáneo", damage: "3d6 psíquico", desc: "Salvación de Sabiduría o sufre daño y gasta reacción para alejarse de ti." },
+  { name: "Castigo marcador", level: "Nivel 2", isCantrip: false, concentration: true, time: "1 acción adicional", range: "Personal", duration: "1 minuto", damage: "+3d6 radiante", desc: "El siguiente impacto con arma inflige daño radiante y anula la invisibilidad del objetivo." },
+  { name: "Paso brumoso", level: "Nivel 2", isCantrip: false, concentration: false, time: "1 acción adicional", range: "Personal", duration: "Instantáneo", damage: "Teletransporte", desc: "Teletransporte instantáneo hasta 30 ft a un espacio desocupado visible." },
+  { name: "Arma elemental", level: "Nivel 3", isCantrip: false, concentration: true, time: "1 acción", range: "Toque", duration: "1 hora", damage: "+1 ataque / +1d4 daño", desc: "Convierte un arma en mágica otorgando +1 al impacto y +1d4 daño elemental." },
+  { name: "Desplazamiento (Blink)", level: "Nivel 3", isCantrip: false, concentration: false, time: "1 acción", range: "Personal", duration: "1 minuto", damage: "Defensivo", desc: "Al final de tu turno tiras 1d20; con 11 o más pasas al Plano Etéreo." }
 ];
 
-const DND_SKILLS = [
-  { name: "Acrobacias", stat: "dexterity" },
-  { name: "Arcanos", stat: "intelligence" },
-  { name: "Atletismo", stat: "strength" },
-  { name: "Engañar", stat: "charisma" },
-  { name: "Historia", stat: "intelligence" },
-  { name: "Interpretación", stat: "charisma" },
-  { name: "Intimidar", stat: "charisma" },
-  { name: "Investigación", stat: "intelligence" },
-  { name: "Juego de Manos", stat: "dexterity" },
-  { name: "Medicina", stat: "wisdom" },
-  { name: "Naturaleza", stat: "intelligence" },
-  { name: "Percepción", stat: "wisdom" },
-  { name: "Perspicacia", stat: "wisdom" },
-  { name: "Persuasión", stat: "charisma" },
-  { name: "Religión", stat: "intelligence" },
-  { name: "Sigilo", stat: "dexterity" },
-  { name: "Supervivencia", stat: "wisdom" },
-  { name: "Trato con Animales", stat: "wisdom" }
-];
+const LADY_D_CONFIGURATIONS = {
+  cantrip_free: {
+    name: "Truco Puro",
+    pactCost: 0,
+    selfDamage: false,
+    damageDice: "3d10",
+    desc: "1. Truco Puro: Coste 0 espacios de pacto y cero autodaño personal por favor de la Dama."
+  },
+  cantrip_damage: {
+    name: "Pacto Doloroso",
+    pactCost: 0,
+    selfDamage: true,
+    damageDice: "3d10",
+    desc: "2. Pacto Doloroso: Coste 0 de pacto. La Dama exige una contra tirada de autodaño físico (1d4 PV)."
+  },
+  normal_slot: {
+    name: "Normal (Espacio de Pacto)",
+    pactCost: 1,
+    selfDamage: false,
+    damageDice: "5d10",
+    desc: "3. Normal: Invocación estándar de Brujo. Consume 1 espacio de pacto de Nivel 3. Sin autodaño."
+  },
+  slot_plus_damage: {
+    name: "Sobrecarga de Sufrimiento",
+    pactCost: 1,
+    selfDamage: true,
+    damageDice: "5d10",
+    desc: "4. Sobrecarga: Consume 1 espacio de pacto y exige 1d4 de autodaño como tributo adicional a la Dama del Dolor."
+  }
+};
 
 const state = {
   character: null,
-  equipment: [],
-  notes: [],
-  spellSlots: 2,
-  pourcoonHp: 9,
-  pourcoonMaxHp: 9,
-  deaths: 4,
-  stampRotations: {},
-  deathSuccesses: 0,
-  deathFailures: 0,
-  healingHandsUsed: false,
-  necroticShroudUsed: false,
-  hexbladeCurseUsed: false,
-  ammoCount: 20,
-  specterState: 'ready',
-  ladyDMode: 'cantrip_free',
-  activeConcentration: null,
+
   combat: {
-    hexblade_curse_active: false,
-    elemental_weapon_active: false
+    currentHp: 48,
+    maxHp: 48,
+    temporaryHp: 0,
+    activeConcentration: null,
+    hexbladeCurseActive: false,
+    elementalWeaponActive: false,
+    hexbladeCurseUsed: false,
+    necroticShroudUsed: false,
+    healingHandsUsed: false,
+    deathSaves: { successes: 0, failures: 0 }
   },
-  noteFilter: "all",
-  activeModalSpell: null
+
+  resources: {
+    pactSlots: 2,
+    pactSlotsMax: 2,
+    ammunition: 20,
+    deaths: 4,
+    currency: { gp: 599, sp: 99, cp: 15 }
+  },
+
+  equipment: [],
+  spells: OFFICIAL_SPELLS_CATALOG,
+  skills: [],
+  notes: [],
+
+  companions: {
+    pourcoon: { currentHp: 9, maxHp: 9 },
+    specter: { state: "ready", currentHp: 3, maxHp: 3 }
+  },
+
+  ladyD: { mode: "cantrip_free" },
+
+  ui: {
+    activeTab: "combat",
+    stampRotations: {},
+    noteFilter: "all"
+  }
 };
 
 const $ = (id) => document.getElementById(id);
 
-function calcMod(score) { return Math.floor(((Number(score) || 10) - 10) / 2); }
-function signed(num) { const n = Number(num) || 0; return n >= 0 ? `+${n}` : `${n}`; }
-function calcProf(level) { return Math.floor(((Number(level) || 1) - 1) / 4) + 2; }
-function escapeHTML(str) { return String(str ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
-function safeSetText(id, val) { const el = $(id); if (el) el.textContent = val; }
-
-/* NAVEGACIÓN */
-function setupTabs() {
-  document.querySelectorAll(".sheet-tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".sheet-tab-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      const target = btn.dataset.tab;
-      $(target)?.classList.add("active");
-    });
-  });
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
-/* AUDIO CELEBRACIÓN GRUNT */
-function playGruntCheer() {
+function signed(num) {
+  const n = Number(num) || 0;
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+
+function safeSetText(id, val) {
+  const el = $(id);
+  if (el) el.textContent = val;
+}
+
+function showStatus(text, ok = true) {
+  const el = $("saveStatus");
+  if (!el) return;
+  el.textContent = text;
+  el.className = ok ? "" : "error";
+}
+
+/* --------------------------------------------------------------------------
+   MOTOR MATEMÁTICO
+   -------------------------------------------------------------------------- */
+function getAbilityScore(ability) {
+  return Number(state.character?.[ability] ?? 10);
+}
+
+function getAbilityModifier(score) {
+  return Math.floor((Number(score) - 10) / 2);
+}
+
+function getProficiencyBonus(level) {
+  const lvl = Number(level ?? state.character?.class_level ?? 6);
+  return Math.floor((lvl - 1) / 4) + 2;
+}
+
+function getSavingThrowBonus(ability) {
+  const mod = getAbilityModifier(getAbilityScore(ability));
+  const prof = getProficiencyBonus();
+  if (ability === "wisdom" || ability === "charisma") {
+    return mod + prof;
+  }
+  return mod;
+}
+
+function getSkillBonus(skillKey) {
+  const def = SKILL_DEFINITIONS[skillKey];
+  if (!def) return 0;
+
+  const statMod = getAbilityModifier(getAbilityScore(def.ability));
+  const prof = getProficiencyBonus();
+  const skillData = state.skills.find(s => s.key === skillKey);
+
+  let bonus = statMod;
+  if (skillData?.expertise) {
+    bonus += prof * 2;
+  } else if (skillData?.proficient) {
+    bonus += prof;
+  }
+  return bonus;
+}
+
+function getPassivePerception() {
+  return 10 + getSkillBonus("perception");
+}
+
+function getPassiveInvestigation() {
+  return 10 + getSkillBonus("investigation");
+}
+
+function getSpellSaveDC() {
+  return 8 + getProficiencyBonus() + getAbilityModifier(getAbilityScore("charisma"));
+}
+
+function getSpellAttackBonus() {
+  return getProficiencyBonus() + getAbilityModifier(getAbilityScore("charisma"));
+}
+
+function calculateArmorClass() {
+  const dexMod = getAbilityModifier(getAbilityScore("dexterity"));
+  const equippedArmor = state.equipment.find(i => i.type === "armor" && i.location === "equipped");
+  const equippedShield = state.equipment.find(i => i.type === "shield" && i.location === "equipped");
+
+  let baseAC = 10 + dexMod;
+  let detail = `10 + DES (${signed(dexMod)})`;
+
+  if (equippedArmor) {
+    const maxDex = equippedArmor.maxDex !== undefined ? equippedArmor.maxDex : 2;
+    const allowedDex = Math.min(dexMod, maxDex);
+    const armorBase = Number(equippedArmor.baseAC ?? 14);
+    baseAC = armorBase + allowedDex;
+    detail = `${equippedArmor.name} (${armorBase}) + DES (${signed(allowedDex)})`;
+  }
+
+  if (equippedShield) {
+    const shieldBonus = Number(equippedShield.bonusAC ?? 2);
+    baseAC += shieldBonus;
+    detail += ` + ${equippedShield.name} (+${shieldBonus})`;
+  }
+
+  return { total: baseAC, detail };
+}
+
+function calculateInitiative() {
+  return getAbilityModifier(getAbilityScore("dexterity"));
+}
+
+/* --------------------------------------------------------------------------
+   DADOS Y COMBATE
+   -------------------------------------------------------------------------- */
+function rollDice(count, sides) {
+  const rolls = [];
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    const r = Math.floor(Math.random() * sides) + 1;
+    rolls.push(r);
+    total += r;
+  }
+  return { rolls, total };
+}
+
+function applyDamage(amount) {
+  let remaining = Math.max(0, Number(amount));
+
+  if (state.combat.temporaryHp > 0) {
+    const absorbed = Math.min(state.combat.temporaryHp, remaining);
+    state.combat.temporaryHp -= absorbed;
+    remaining -= absorbed;
+  }
+
+  if (remaining > 0) {
+    state.combat.currentHp = Math.max(0, state.combat.currentHp - remaining);
+  }
+
+  renderCombat();
+  persistCombatState();
+}
+
+function healCharacter(amount) {
+  const heal = Math.max(0, Number(amount));
+  state.combat.currentHp = Math.min(state.combat.maxHp, state.combat.currentHp + heal);
+  renderCombat();
+  persistCombatState();
+}
+
+function setTemporaryHp(amount) {
+  state.combat.temporaryHp = Math.max(0, Number(amount));
+  renderCombat();
+  persistCombatState();
+}
+
+function rollDeathSave() {
+  if (state.combat.currentHp > 0) {
+    showToast("Lior tiene puntos de golpe conscientes.");
+    return;
+  }
+
+  if (state.combat.deathSaves.successes >= 3 || state.combat.deathSaves.failures >= 3) {
+    showToast("Las salvaciones han concluido. Limpia para reiniciar.");
+    return;
+  }
+
+  const d20 = rollDice(1, 20).total;
+
+  if (d20 === 20) {
+    state.combat.currentHp = 1;
+    resetDeathSaves();
+    openModal("¡20 NATURAL EN SALVACIÓN!", `
+      <div class="roll-result">
+        <div class="d20">20</div>
+        <div class="total ok">¡Milagro!</div>
+        <p>Lior recupera la consciencia inmediatamente con 1 PV.</p>
+      </div>
+    `);
+  } else if (d20 === 1) {
+    state.combat.deathSaves.failures = Math.min(3, state.combat.deathSaves.failures + 2);
+    openModal("PIFIA EN SALVACIÓN", `
+      <div class="roll-result">
+        <div class="d20" style="color:var(--danger)">1</div>
+        <div class="total error">Pifia Crítica</div>
+        <p>Recibes 2 fallos automáticos contra la muerte.</p>
+      </div>
+    `);
+  } else if (d20 >= 10) {
+    state.combat.deathSaves.successes = Math.min(3, state.combat.deathSaves.successes + 1);
+    openModal("SALVACIÓN EXITOSA", `
+      <div class="roll-result">
+        <div class="d20">${d20}</div>
+        <div class="total ok">Éxito</div>
+        <p>Tirada ≥ 10. Se anota un éxito.</p>
+      </div>
+    `);
+  } else {
+    state.combat.deathSaves.failures = Math.min(3, state.combat.deathSaves.failures + 1);
+    openModal("SALVACIÓN FALLIDA", `
+      <div class="roll-result">
+        <div class="d20" style="color:var(--danger)">${d20}</div>
+        <div class="total error">Fallo</div>
+        <p>Tirada &lt; 10. Se anota un fallo.</p>
+      </div>
+    `);
+  }
+
+  if (state.combat.deathSaves.successes >= 3) {
+    showToast("✨ Lior se ha estabilizado a 0 PV.");
+  } else if (state.combat.deathSaves.failures >= 3) {
+    toggleLoyaltyStamp(Math.min(10, state.resources.deaths + 1));
+    resetDeathSaves();
+  }
+
+  renderCombat();
+  persistCombatState();
+}
+
+function resetDeathSaves() {
+  state.combat.deathSaves.successes = 0;
+  state.combat.deathSaves.failures = 0;
+  renderCombat();
+  persistCombatState();
+}
+
+/* Sincronización Estricta: Armas equipadas -> Ataques */
+function getEquippedWeapons() {
+  const equippedInventoryWeapons = state.equipment.filter(
+    item => item.type === "weapon" && item.location === "equipped"
+  );
+
+  const matched = [];
+  equippedInventoryWeapons.forEach(item => {
+    const found = OFFICIAL_ATTACKS_CATALOG.find(
+      c => c.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+    );
+    if (found) {
+      matched.push(found);
+    } else {
+      matched.push({
+        name: item.name,
+        isPact: false,
+        isFirearm: false,
+        dmgDie: item.damage || "1d6",
+        dmgType: item.damageType || "Cortante"
+      });
+    }
+  });
+
+  const eldritch = OFFICIAL_ATTACKS_CATALOG.find(c => c.isSpell);
+  if (eldritch && !matched.some(m => m.name === eldritch.name)) {
+    matched.push(eldritch);
+  }
+
+  return matched;
+}
+
+function getAttackCalculations(weapon) {
+  const prof = getProficiencyBonus();
+  const chaMod = getAbilityModifier(getAbilityScore("charisma"));
+  const dexMod = getAbilityModifier(getAbilityScore("dexterity"));
+  const strMod = getAbilityModifier(getAbilityScore("strength"));
+
+  let bonus = 0;
+  let damageFormula = weapon.dmgDie;
+
+  if (weapon.name === "Red") {
+    bonus = prof + dexMod;
+    damageFormula = "—";
+  } else if (weapon.isSpell) {
+    bonus = prof + chaMod;
+    damageFormula = `${weapon.dmgDie} (2 rayos)`;
+  } else if (weapon.isPact) {
+    bonus = prof + chaMod + 1;
+    let dmgMod = chaMod + 1;
+    if (state.combat.elementalWeaponActive) {
+      bonus += 1;
+      damageFormula = `${weapon.dmgDie} + ${dmgMod} + 1d4 elem`;
+    } else {
+      damageFormula = `${weapon.dmgDie} + ${dmgMod}`;
+    }
+  } else if (weapon.name === "Espada larga platinada") {
+    bonus = prof + strMod + 1;
+    damageFormula = `${weapon.dmgDie} + ${strMod + 1}`;
+  } else {
+    bonus = prof + dexMod;
+    damageFormula = `${weapon.dmgDie} + ${dexMod}`;
+  }
+
+  return { bonus, damageFormula };
+}
+
+function performAttack(weaponName) {
+  const weapon = getEquippedWeapons().find(w => w.name === weaponName);
+  if (!weapon) {
+    showToast("El arma no se encuentra equipada.");
+    return;
+  }
+
+  if (weapon.isFirearm) {
+    if (state.resources.ammunition <= 0) {
+      showToast("¡Cartuchera vacía! Recarga antes de disparar.");
+      return;
+    }
+    state.resources.ammunition -= 1;
+    persistResources();
+  }
+
+  const { bonus, damageFormula } = getAttackCalculations(weapon);
+  const d20 = rollDice(1, 20).total;
+  const isCrit = (state.combat.hexbladeCurseActive && d20 >= 19) || d20 === 20;
+  const total = d20 + bonus;
+
+  let title = isCrit ? `⚔ ¡CRÍTICO CON ${weapon.name.toUpperCase()}!` : `ATAQUE: ${weapon.name.toUpperCase()}`;
+  let details = `Tirada d20 (${d20}) + Bono (${signed(bonus)})`;
+
+  let smitePrompt = "";
+  if (weapon.isPact && state.resources.pactSlots > 0) {
+    smitePrompt = `
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+        <small style="color:var(--bronze)">¿Deseas aplicar Eldritch Smite?</small>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <button class="primary full" onclick="triggerSmite(${isCrit})">
+            Consumir Slot (+${isCrit ? '8d8' : '4d8'} Fuerza y Derribo)
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  openModal(title, `
+    <div class="roll-result">
+      <div class="d20" style="${isCrit ? 'color:var(--crimson2)' : ''}">${total}</div>
+      <div class="total">${isCrit ? 'Impacto Crítico' : 'Tirada de Impacto'}</div>
+      <p>${details}</p>
+      <p><b>Daño Base:</b> ${damageFormula} ${isCrit ? '(¡Dados duplicados!)' : ''}</p>
+      ${weapon.isFirearm ? `<small>Balas restantes: ${state.resources.ammunition}</small>` : ''}
+      ${smitePrompt}
+    </div>
+  `);
+
+  renderCombat();
+}
+
+function triggerSmite(isCrit = false) {
+  if (state.resources.pactSlots <= 0) {
+    showToast("No quedan espacios de pacto.");
+    return;
+  }
+  state.resources.pactSlots -= 1;
+  const diceCount = isCrit ? 8 : 4;
+  const smiteDmg = rollDice(diceCount, 8);
+
+  openModal("CASTIGO ARCANO (ELDRITCH SMITE)", `
+    <div class="roll-result">
+      <div class="d20" style="color:var(--crimson2)">+${smiteDmg.total}</div>
+      <div class="total">Daño de Fuerza</div>
+      <p>Tirada: [${smiteDmg.rolls.join(" + ")}] (${diceCount}d8)</p>
+      <p class="ok">Objetivo Enorme o menor queda automáticamente DERRIBADO.</p>
+      <small>Espacios de pacto restantes: ${state.resources.pactSlots}/2</small>
+    </div>
+  `);
+
+  renderCombat();
+  renderSpells();
+  persistResources();
+}
+
+/* --------------------------------------------------------------------------
+   CONCENTRACIÓN Y DESCANSOS
+   -------------------------------------------------------------------------- */
+function setConcentration(spellName) {
+  if (state.combat.activeConcentration && state.combat.activeConcentration !== spellName) {
+    showToast(`Concentración en ${state.combat.activeConcentration} rota.`);
+  }
+  state.combat.activeConcentration = spellName;
+  renderCombat();
+}
+
+function breakConcentration() {
+  if (!state.combat.activeConcentration) return;
+  const prev = state.combat.activeConcentration;
+  state.combat.activeConcentration = null;
+
+  if (prev === "Arma elemental") {
+    state.combat.elementalWeaponActive = false;
+  }
+
+  renderCombat();
+  showToast(`Concentración en ${prev} finalizada.`);
+}
+
+function shortRest() {
+  state.resources.pactSlots = state.resources.pactSlotsMax;
+  state.combat.hexbladeCurseUsed = false;
+  state.combat.hexbladeCurseActive = false;
+  breakConcentration();
+
+  renderCombat();
+  renderTraits();
+  renderSpells();
+  persistCombatState();
+  persistResources();
+  showToast("⏳ Descanso Corto completado.");
+}
+
+function longRest() {
+  state.combat.currentHp = state.combat.maxHp;
+  state.combat.temporaryHp = 0;
+  state.resources.pactSlots = state.resources.pactSlotsMax;
+  
+  state.combat.hexbladeCurseUsed = false;
+  state.combat.hexbladeCurseActive = false;
+  state.combat.necroticShroudUsed = false;
+  state.combat.healingHandsUsed = false;
+
+  state.companions.pourcoon.currentHp = state.companions.pourcoon.maxHp;
+  state.companions.specter.state = "ready";
+
+  resetDeathSaves();
+  breakConcentration();
+
+  renderApp();
+  persistCombatState();
+  persistResources();
+  showToast("⛺ Descanso Largo: 100% PV y recursos restablecidos.");
+}
+
+/* --------------------------------------------------------------------------
+   REGLA CASERA DE LADY D.
+   -------------------------------------------------------------------------- */
+function setLadyDMode(modeKey) {
+  if (!LADY_D_CONFIGURATIONS[modeKey]) return;
+  state.ladyD.mode = modeKey;
+  renderTraits();
+  renderSpells();
+  persistCombatState();
+  showToast(`Lady D: Modo ajustado.`);
+}
+
+function castInflictWounds() {
+  const config = LADY_D_CONFIGURATIONS[state.ladyD.mode];
+
+  if (config.pactCost > 0) {
+    if (state.resources.pactSlots <= 0) {
+      showToast("No tienes espacios de pacto disponibles.");
+      return;
+    }
+    state.resources.pactSlots -= 1;
+    persistResources();
+  }
+
+  let selfDmgMsg = "";
+  if (config.selfDamage) {
+    const selfDmg = rollDice(1, 4).total;
+    applyDamage(selfDmg);
+    selfDmgMsg = `<p style="color:var(--danger)"><b>Autodaño de dolor:</b> Sufres ${selfDmg} puntos de daño personal.</p>`;
+  }
+
+  const atkRoll = rollDice(1, 20).total + getSpellAttackBonus();
+
+  openModal("INFLIGIR HERIDAS (LADY D.)", `
+    <div class="roll-result">
+      <div class="d20">${atkRoll}</div>
+      <div class="total">Ataque de Conjuro Cuerpo a Cuerpo</div>
+      <p>Modo: <b>${config.name}</b></p>
+      <p><b>Daño al impactar:</b> ${config.damageDice} necrótico</p>
+      ${selfDmgMsg}
+      <small>Espacios de pacto: ${state.resources.pactSlots}/2</small>
+    </div>
+  `);
+
+  renderApp();
+}
+
+/* --------------------------------------------------------------------------
+   COMPAÑEROS & TARJETA DE LEALTAD
+   -------------------------------------------------------------------------- */
+function cycleSpecterState() {
+  const current = state.companions.specter.state;
+  if (current === "ready") {
+    state.companions.specter.state = "summoned";
+    showToast("Espectro convocado.");
+  } else if (current === "summoned") {
+    state.companions.specter.state = "consumed";
+    showToast("Espectro disipado hasta descanso largo.");
+  } else {
+    showToast("El espectro está consumido. Requiere Descanso Largo.");
+    return;
+  }
+  renderCompanions();
+  persistCombatState();
+}
+
+function toggleLoyaltyStamp(index) {
+  if (index === state.resources.deaths) {
+    state.resources.deaths = index - 1;
+    delete state.ui.stampRotations[index];
+  } else {
+    state.resources.deaths = index;
+    state.ui.stampRotations[index] = Math.floor(Math.random() * 91) - 45;
+  }
+
+  if (state.resources.deaths === 10) {
+    playGruntBirthdayParty();
+  }
+
+  renderCombat();
+  persistResources();
+}
+
+function playGruntBirthdayParty() {
   try {
     const audio = new Audio("https://www.myinstants.com/media/sounds/grunt-birthday-party.mp3");
     audio.volume = 0.85;
-    audio.play().catch(() => playSynthCheer());
-  } catch (e) {
-    playSynthCheer();
+    audio.play().catch(() => {});
+  } catch (e) {}
+
+  if (typeof confetti === "function") {
+    confetti({ particleCount: 160, spread: 100, origin: { y: 0.6 } });
   }
 }
 
-function playSynthCheer() {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const notes = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99];
-    notes.forEach((freq, idx) => {
-      const start = ctx.currentTime + idx * 0.04;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, start);
-      gain.gain.setValueAtTime(0.18, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.8);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.85);
-    });
-  } catch (err) {}
+/* --------------------------------------------------------------------------
+   RENDERIZADORES DE LA INTERFAZ
+   -------------------------------------------------------------------------- */
+function renderApp() {
+  renderIdentityHead();
+  renderCombat();
+  renderSheet();
+  renderTraits();
+  renderEquipment();
+  renderSpells();
+  renderCompanions();
+  renderDiary();
 }
 
-/* =========================================================
-   CARGA INICIAL CON PERSISTENCIA
-========================================================= */
-async function loadAll() {
-  state.character = {
-    id: "lior-kurogane",
-    name: "Lior Kurogane",
-    class_level: 6,
-    max_hp: 48,
-    current_hp: 48,
-    temporary_hp: 0,
-    strength: 13,
-    dexterity: 15,
-    constitution: 15,
-    intelligence: 13,
-    wisdom: 13,
-    charisma: 20,
-    speed: 30,
-    gold: 599,
-    silver: 99,
-    copper: 15
+function renderIdentityHead() {
+  safeSetText("headName", state.character?.name || "Lior Kurogane");
+  safeSetText("headLevel", state.character?.class_level || 6);
+  safeSetText("sheetLevel", state.character?.class_level || 6);
+}
+
+function renderCombat() {
+  const curHp = state.combat.currentHp;
+  const maxHp = state.combat.maxHp;
+  safeSetText("hpText", `${curHp} / ${maxHp}`);
+  const hpPercent = clamp((curHp / maxHp) * 100, 0, 100);
+  const barEl = $("hpBar");
+  if (barEl) barEl.style.width = `${hpPercent}%`;
+
+  const badge = $("tempBadge");
+  if (badge) {
+    if (state.combat.temporaryHp > 0) {
+      badge.classList.remove("hidden");
+      badge.textContent = `+${state.combat.temporaryHp} temp`;
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+
+  const acData = calculateArmorClass();
+  safeSetText("acText", acData.total);
+  safeSetText("acDetail", acData.detail);
+  safeSetText("initiativeText", signed(calculateInitiative()));
+
+  safeSetText("concentrationText", state.combat.activeConcentration || "Ninguna");
+  const breakBtn = $("breakConcentration");
+  if (breakBtn) breakBtn.classList.toggle("hidden", !state.combat.activeConcentration);
+
+  const curseToggle = $("curseToggle");
+  if (curseToggle) {
+    curseToggle.classList.toggle("active", state.combat.hexbladeCurseActive);
+    curseToggle.querySelector("span").textContent = state.combat.hexbladeCurseActive ? "✓" : "○";
+  }
+
+  const elemToggle = $("elementalToggle");
+  if (elemToggle) {
+    elemToggle.classList.toggle("active", state.combat.elementalWeaponActive);
+    elemToggle.querySelector("span").textContent = state.combat.elementalWeaponActive ? "✓" : "○";
+  }
+
+  renderDots("successDots", state.combat.deathSaves.successes, "success");
+  renderDots("failureDots", state.combat.deathSaves.failures, "failure");
+  safeSetText("ammoText", state.resources.ammunition);
+
+  // Tabla de Ataques (armas equipadas)
+  const attacksBody = $("attacksBody");
+  if (attacksBody) {
+    const weapons = getEquippedWeapons();
+    if (weapons.length === 0) {
+      attacksBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin armas equipadas en el inventario.</td></tr>`;
+    } else {
+      attacksBody.innerHTML = weapons.map(w => {
+        const { bonus, damageFormula } = getAttackCalculations(w);
+        return `
+          <tr class="attack-row" onclick="performAttack('${escapeHtml(w.name)}')">
+            <td><strong>${escapeHtml(w.name)}</strong></td>
+            <td><b style="color:var(--bronze)">${signed(bonus)}</b></td>
+            <td>${damageFormula}</td>
+            <td><small>${w.dmgType}</small></td>
+          </tr>
+        `;
+      }).join("");
+    }
+  }
+
+  // Habilidades rápidas
+  const skillsGrid = $("skillsGrid");
+  if (skillsGrid) {
+    skillsGrid.innerHTML = Object.keys(SKILL_DEFINITIONS).map(k => {
+      const def = SKILL_DEFINITIONS[k];
+      const bonus = getSkillBonus(k);
+      return `
+        <div class="skill" onclick="rollSkillCheck('${k}')">
+          <div><strong>${def.name}</strong><small>${def.ability.substring(0,3).toUpperCase()}</small></div>
+          <b>${signed(bonus)}</b>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Tarjeta de Lealtad Mortal (Solo icono puro con rotación de -45° a +45°)
+  safeSetText("deathCount", state.resources.deaths);
+  const stampsContainer = $("deathStamps");
+  if (stampsContainer) {
+    let html = "";
+    for (let i = 1; i <= 10; i++) {
+      const stamped = i <= state.resources.deaths;
+      const rot = state.ui.stampRotations[i] || 0;
+      html += `
+        <div class="stamp ${stamped ? 'filled' : ''}" onclick="toggleLoyaltyStamp(${i})" title="Sello ${i}">
+          ${stamped ? `
+            <img src="logo.png" class="stamp-icon-pure" style="transform:rotate(${rot}deg)" alt="Sello Pourcoon">
+          ` : i}
+        </div>
+      `;
+    }
+    stampsContainer.innerHTML = html;
+  }
+}
+
+function renderDots(containerId, filledCount, type) {
+  const el = $(containerId);
+  if (!el) return;
+  let html = "";
+  for (let i = 1; i <= 3; i++) {
+    html += `<span class="dot ${type} ${i <= filledCount ? 'filled' : ''}"></span>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderSheet() {
+  // Atributos limpios sin botones
+  const abilityGrid = $("abilityGrid");
+  if (abilityGrid) {
+    const stats = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+    abilityGrid.innerHTML = stats.map(s => {
+      const score = getAbilityScore(s);
+      const mod = getAbilityModifier(score);
+      return `
+        <div class="clean-ability-cell">
+          <h3>${s.substring(0,3).toUpperCase()}</h3>
+          <div class="val">${score}</div>
+          <div class="mod" style="color:var(--bronze)">${signed(mod)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  safeSetText("profText", signed(getProficiencyBonus()));
+  safeSetText("spellDcText", getSpellSaveDC());
+  safeSetText("spellAttackText", signed(getSpellAttackBonus()));
+  safeSetText("passivePerception", getPassivePerception());
+  safeSetText("passiveInvestigation", getPassiveInvestigation());
+
+  const savingGrid = $("savingGrid");
+  if (savingGrid) {
+    const stats = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+    savingGrid.innerHTML = stats.map(s => {
+      const bonus = getSavingThrowBonus(s);
+      const isProf = s === "wisdom" || s === "charisma";
+      return `
+        <div onclick="rollSavingThrow('${s}')" style="cursor:pointer">
+          <span>${s.substring(0,3).toUpperCase()} ${isProf ? '✦' : ''}</span>
+          <b style="color:var(--bronze)">${signed(bonus)}</b>
+        </div>
+      `;
+    }).join("");
+  }
+
+  const sheetSkills = $("sheetSkills");
+  if (sheetSkills) {
+    sheetSkills.innerHTML = Object.keys(SKILL_DEFINITIONS).map(k => {
+      const def = SKILL_DEFINITIONS[k];
+      const data = state.skills.find(s => s.key === k) || { proficient: false, expertise: false };
+      return `
+        <div class="edit-skill">
+          <label>${def.name} (${signed(getSkillBonus(k))})</label>
+          <button class="${data.proficient ? 'primary' : ''}" onclick="toggleSkillProficiency('${k}')">
+            ${data.proficient ? '✦ Comp' : '○ Comp'}
+          </button>
+          <button class="${data.expertise ? 'primary' : ''}" onclick="toggleSkillExpertise('${k}')">
+            ${data.expertise ? '✦✦ Pericia' : '○ Pericia'}
+          </button>
+        </div>
+      `;
+    }).join("");
+  }
+}
+
+function renderTraits() {
+  const ladyDesc = $("ladyModeDescription");
+  if (ladyDesc) {
+    ladyDesc.textContent = LADY_D_CONFIGURATIONS[state.ladyD.mode]?.desc || "";
+  }
+  const ladySel = $("ladyMode");
+  if (ladySel) ladySel.value = state.ladyD.mode;
+
+  const racialContainer = $("racialTraits");
+  if (racialContainer) {
+    racialContainer.innerHTML = `
+      <div class="trait">
+        <div><strong>Mortaja Necrótica</strong><small>Asusta a 10 ft (CD ${getSpellSaveDC()}) y suma +${state.character?.class_level || 6} daño necrótico.</small></div>
+        <button class="small-btn ${state.combat.necroticShroudUsed ? '' : 'primary'}" onclick="useNecroticShroud()" ${state.combat.necroticShroudUsed ? 'disabled' : ''}>
+          ${state.combat.necroticShroudUsed ? 'Agotado' : 'Desatar'}
+        </button>
+      </div>
+      <div class="trait">
+        <div><strong>Manos Curativas</strong><small>Toca para sanar ${state.character?.class_level || 6} PV (1/Descanso largo).</small></div>
+        <button class="small-btn ${state.combat.healingHandsUsed ? '' : 'primary'}" onclick="useHealingHands()" ${state.combat.healingHandsUsed ? 'disabled' : ''}>
+          ${state.combat.healingHandsUsed ? 'Agotado' : 'Sanar'}
+        </button>
+      </div>
+      <div class="trait">
+        <div><strong>Resistencia Celestial</strong><small>Resistencia a daño necrótico y radiante.</small></div>
+        <span class="badge green">Pasivo</span>
+      </div>
+    `;
+  }
+
+  const classContainer = $("classTraits");
+  if (classContainer) {
+    classContainer.innerHTML = `
+      <div class="trait">
+        <div><strong>Guerrero Maléfico</strong><small>Usa Carisma (+${getAbilityModifier(getAbilityScore("charisma"))}) para impactar y dañar.</small></div>
+        <span class="badge green">Activo</span>
+      </div>
+      <div class="trait">
+        <div><strong>Maldición del Filo</strong><small>Crítico 19-20, +${getProficiencyBonus()} daño y sana al morir el objetivo.</small></div>
+        <button class="small-btn ${state.combat.hexbladeCurseUsed ? '' : 'primary'}" onclick="toggleHexbladeCurse()" ${state.combat.hexbladeCurseUsed ? 'disabled' : ''}>
+          ${state.combat.hexbladeCurseUsed ? 'Consumida' : 'Activar'}
+        </button>
+      </div>
+    `;
+  }
+
+  const invocationsContainer = $("invocations");
+  if (invocationsContainer) {
+    invocationsContainer.innerHTML = `
+      <div class="trait"><div><strong>Arma de Pacto Mejorada</strong><small>Foco de conjuro y bonificador +1 al ataque y daño.</small></div></div>
+      <div class="trait"><div><strong>Castigo Arcano (Eldritch Smite)</strong><small>Consume espacio para 4d8 fuerza y derribar al objetivo.</small></div></div>
+      <div class="trait"><div><strong>Filo Sediento (Thirsting Blade)</strong><small>Permite 2 ataques con arma de pacto al usar acción de Ataque.</small></div></div>
+    `;
+  }
+}
+
+function renderEquipment() {
+  safeSetText("gp", state.resources.currency.gp);
+  safeSetText("sp", state.resources.currency.sp);
+  safeSetText("cp", state.resources.currency.cp);
+
+  const container = $("equipmentList");
+  if (!container) return;
+
+  container.innerHTML = state.equipment.map(item => {
+    const locClass = item.location;
+    const locLabel = item.location === "equipped" ? "⚔ Equipado" : (item.location === "carried" ? "🎒 Cargado" : "📦 Almacenado");
+    return `
+      <div class="equip ${locClass}">
+        <div class="equip-info">
+          <strong>${escapeHtml(item.name)}</strong>
+          <small>Cantidad: ${item.quantity || 1} · Tipo: ${item.type || 'objeto'}</small>
+        </div>
+        <div class="equip-actions">
+          <button onclick="cycleEquipmentLocation('${item.id}')">${locLabel}</button>
+          <button class="delete-note" onclick="deleteEquipmentItem('${item.id}')">✕</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderSpells() {
+  // Espacios de pacto limpios sin más/menos
+  safeSetText("slotText", `${state.resources.pactSlots} / ${state.resources.pactSlotsMax}`);
+  const listEl = $("spellList");
+  if (!listEl) return;
+
+  listEl.innerHTML = state.spells.map((sp, idx) => {
+    let tag = sp.level;
+    if (sp.name === "Infligir heridas") {
+      tag = LADY_D_CONFIGURATIONS[state.ladyD.mode]?.name || "Lady D.";
+    }
+    return `
+      <div class="spell" onclick="openSpellDetails(${idx})">
+        <div>
+          <strong>${escapeHtml(sp.name)}</strong>
+          <small>${sp.time} · ${sp.range} ${sp.concentration ? '· [Concentración]' : ''}</small>
+        </div>
+        <span class="spell-tag">${tag}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderCompanions() {
+  safeSetText("pourHp", `${state.companions.pourcoon.currentHp}/${state.companions.pourcoon.maxHp}`);
+  const pourPercent = clamp((state.companions.pourcoon.currentHp / state.companions.pourcoon.maxHp) * 100, 0, 100);
+  const pourBar = $("pourBar");
+  if (pourBar) pourBar.style.width = `${pourPercent}%`;
+
+  const specterHp = Math.floor((state.character?.class_level || 6) / 2);
+  safeSetText("specterHp", specterHp);
+  safeSetText("specterAttack", signed(getAbilityModifier(getAbilityScore("charisma"))));
+
+  const specterEl = $("specterState");
+  if (specterEl) {
+    const st = state.companions.specter.state;
+    specterEl.className = `specter-state ${st === 'ready' ? 'rest' : (st === 'summoned' ? 'active' : 'spent')}`;
+    if (st === "ready") specterEl.textContent = "💤 En reposo (Listo para convocar)";
+    else if (st === "summoned") specterEl.textContent = "👻 Convocado (Activo en combate)";
+    else specterEl.textContent = "💀 Consumido (Agotado hasta descanso largo)";
+  }
+}
+
+function renderDiary() {
+  const container = $("notesList");
+  if (!container) return;
+
+  const filter = state.ui.noteFilter;
+  const filtered = filter === "all" ? state.notes : state.notes.filter(n => n.note_type === filter);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="note"><small>Sin notas en esta categoría.</small></div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(n => `
+    <div class="note">
+      <div class="note-head">
+        <strong>${escapeHtml(n.title)}</strong>
+        <span class="badge green">${n.note_type?.toUpperCase() || 'NOTA'}</span>
+      </div>
+      <p style="margin:6px 0;font-size:12px;white-space:pre-wrap;">${escapeHtml(n.content)}</p>
+      <button class="delete-note" onclick="deleteNoteItem('${n.id}')">Eliminar</button>
+    </div>
+  `).join("");
+}
+
+/* --------------------------------------------------------------------------
+   ACCIONES DE RASGOS Y CONJUROS
+   -------------------------------------------------------------------------- */
+function useNecroticShroud() {
+  if (state.combat.necroticShroudUsed) {
+    showToast("Mortaja Necrótica ya fue utilizada.");
+    return;
+  }
+  state.combat.necroticShroudUsed = true;
+  openModal("MORTAJA NECRÓTICA", `
+    <div class="roll-result">
+      <div class="d20" style="color:var(--crimson2)">💀</div>
+      <div class="total">Alas de Sombra Desatadas</div>
+      <p>Criaturas a 10 ft deben superar salvación de CARISMA (CD ${getSpellSaveDC()}) o estarán asustadas.</p>
+      <p class="ok">+${state.character?.class_level || 6} daño necrótico en un ataque por turno durante 1 minuto.</p>
+    </div>
+  `);
+  renderTraits();
+  persistCombatState();
+}
+
+function useHealingHands() {
+  if (state.combat.healingHandsUsed) {
+    showToast("Manos Curativas ya fue utilizada.");
+    return;
+  }
+  const amount = state.character?.class_level || 6;
+  state.combat.healingHandsUsed = true;
+  healCharacter(amount);
+  showToast(`Manos Curativas: Has recuperado ${amount} PV.`);
+  renderTraits();
+  persistCombatState();
+}
+
+function toggleHexbladeCurse() {
+  if (state.combat.hexbladeCurseUsed && !state.combat.hexbladeCurseActive) {
+    showToast("La Maldición del Filo ya fue consumida.");
+    return;
+  }
+  state.combat.hexbladeCurseActive = !state.combat.hexbladeCurseActive;
+  if (state.combat.hexbladeCurseActive) {
+    state.combat.hexbladeCurseUsed = true;
+  }
+  renderCombat();
+  renderTraits();
+  persistCombatState();
+}
+
+function openSpellDetails(spellIndex) {
+  const sp = state.spells[spellIndex];
+  if (!sp) return;
+
+  if (sp.name === "Infligir heridas") {
+    castInflictWounds();
+    return;
+  }
+
+  let actionBtn = "";
+  if (sp.isCantrip) {
+    actionBtn = `<button class="primary full" onclick="castSpellFromModal('${escapeHtml(sp.name)}', true, ${Boolean(sp.concentration)})">Lanzar Truco (Sin Coste)</button>`;
+  } else {
+    actionBtn = `
+      <button class="primary full" onclick="castSpellFromModal('${escapeHtml(sp.name)}', false, ${Boolean(sp.concentration)})" ${state.resources.pactSlots <= 0 ? 'disabled' : ''}>
+        Lanzar Conjuro (Consume 1 Espacio · ${state.resources.pactSlots}/2 disponibles)
+      </button>
+    `;
+  }
+
+  openModal(sp.name, `
+    <div>
+      <span class="badge green">${sp.level}</span>
+      <p><b>Tiempo:</b> ${sp.time} · <b>Alcance:</b> ${sp.range} · <b>Duración:</b> ${sp.duration}</p>
+      <p><b>Efecto / Daño:</b> ${sp.damage}</p>
+      <p>${sp.desc}</p>
+      ${sp.concentration ? '<p style="color:var(--bronze)"><b>Requiere Concentración</b></p>' : ''}
+      <div class="modal-actions">${actionBtn}</div>
+    </div>
+  `);
+}
+
+function castSpellFromModal(name, isCantrip, isConcentration) {
+  if (!isCantrip) {
+    if (state.resources.pactSlots <= 0) {
+      showToast("Sin espacios de pacto disponibles.");
+      return;
+    }
+    state.resources.pactSlots -= 1;
+    persistResources();
+  }
+
+  if (isConcentration) {
+    setConcentration(name);
+  }
+
+  if (name.includes("Armadura de Agathys")) {
+    setTemporaryHp(15);
+  }
+
+  closeModal();
+  renderApp();
+  showToast(`¡Has lanzado ${name}!`);
+}
+
+/* --------------------------------------------------------------------------
+   GESTIÓN DE EQUIPO
+   -------------------------------------------------------------------------- */
+function cycleEquipmentLocation(itemId) {
+  const item = state.equipment.find(i => i.id === itemId);
+  if (!item) return;
+
+  const cycle = ["equipped", "carried", "stored"];
+  item.location = cycle[(cycle.indexOf(item.location) + 1) % cycle.length];
+
+  saveLocalBackup();
+  renderApp();
+  persistEquipment(item);
+}
+
+function deleteEquipmentItem(itemId) {
+  state.equipment = state.equipment.filter(i => i.id !== itemId);
+  saveLocalBackup();
+  renderApp();
+  deleteEquipmentFromDB(itemId);
+}
+
+function addNewEquipment() {
+  const name = prompt("Nombre del nuevo objeto:");
+  if (!name || !name.trim()) return;
+
+  const lower = name.toLowerCase();
+  let type = "item";
+  let baseAC = null;
+  let maxDex = null;
+  let bonusAC = null;
+
+  if (lower.includes("coraza") || lower.includes("armadura")) {
+    type = "armor";
+    baseAC = 14;
+    maxDex = 2;
+  } else if (lower.includes("broquel") || lower.includes("escudo")) {
+    type = "shield";
+    bonusAC = 2;
+  } else if (lower.includes("pistola") || lower.includes("mosquete") || lower.includes("arpón") || lower.includes("arpon") || lower.includes("espada") || lower.includes("daga") || lower.includes("red")) {
+    type = "weapon";
+  }
+
+  const newItem = {
+    id: `eq-${Date.now()}`,
+    name: name.trim(),
+    quantity: 1,
+    location: "carried",
+    type,
+    baseAC,
+    maxDex,
+    bonusAC
   };
 
+  state.equipment.push(newItem);
+  saveLocalBackup();
+  renderApp();
+  persistEquipment(newItem);
+}
+
+/* --------------------------------------------------------------------------
+   MODAL Y TOASTS
+   -------------------------------------------------------------------------- */
+function openModal(title, htmlContent) {
+  const modal = $("modal");
+  const content = $("modalContent");
+  if (!modal || !content) return;
+
+  content.innerHTML = `<h2>${escapeHtml(title)}</h2>${htmlContent}`;
+  modal.classList.remove("hidden");
+}
+
+function closeModal() {
+  const modal = $("modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function showToast(message) {
+  showStatus(message);
+  setTimeout(() => showStatus("Sincronizado"), 3000);
+}
+
+/* --------------------------------------------------------------------------
+   PERSISTENCIA
+   -------------------------------------------------------------------------- */
+async function loadAllData() {
   try {
-    const { data, error } = await db
+    showStatus("Cargando...");
+    
+    const { data: char } = await db
       .from("characters")
       .select("*")
       .eq("name", "Lior Kurogane")
       .limit(1)
       .maybeSingle();
 
-    if (!error && data) {
-      state.character = { ...state.character, ...data };
-      state.character.max_hp = data.max_hp ?? 48;
-      state.character.current_hp = data.current_hp ?? 48;
-      state.character.temporary_hp = data.temporary_hp ?? 0;
-      state.deaths = data.deaths ?? 4;
-      state.spellSlots = data.spell_slots_level_3 ?? 2;
-      state.ammoCount = data.ammo ?? 20;
-      state.specterState = data.specter_state ?? 'ready';
-      state.hexbladeCurseUsed = data.hexblade_curse_used ?? false;
-      state.necroticShroudUsed = data.necrotic_shroud_used ?? false;
-      state.healingHandsUsed = data.healing_hands_used ?? false;
-      state.ladyDMode = data.lady_d_mode ?? 'cantrip_free';
+    if (char) {
+      state.character = char;
+      state.combat.currentHp = char.current_hp ?? 48;
+      state.combat.maxHp = char.max_hp ?? 48;
+      state.combat.temporaryHp = char.temporary_hp ?? 0;
+      state.resources.pactSlots = char.spell_slots_level_3 ?? 2;
+      state.resources.ammunition = char.ammo ?? 20;
+      state.resources.deaths = char.deaths ?? 4;
+      state.combat.hexbladeCurseUsed = char.hexblade_curse_used ?? false;
+      state.combat.necroticShroudUsed = char.necrotic_shroud_used ?? false;
+      state.combat.healingHandsUsed = char.healing_hands_used ?? false;
+      state.companions.specter.state = char.specter_state ?? "ready";
+      state.ladyD.mode = char.lady_d_mode ?? "cantrip_free";
     }
+
+    const { data: notes } = await db
+      .from("campaign_notes")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (notes) state.notes = notes;
+
+    const localEquip = localStorage.getItem("lior_equipment");
+    if (localEquip) {
+      try { state.equipment = JSON.parse(localEquip); } catch (e) { initDefaultEquipment(); }
+    } else {
+      initDefaultEquipment();
+    }
+
+    initializeOfficialSkills();
+    showStatus("Sincronizado");
   } catch (err) {
-    console.warn("Supabase offline, usando almacenamiento local:", err);
-    const localDeaths = localStorage.getItem("lior_deaths");
-    const localAmmo = localStorage.getItem("lior_ammo");
-    if (localDeaths !== null) state.deaths = Number(localDeaths);
-    if (localAmmo !== null) state.ammoCount = Number(localAmmo);
+    console.warn("Fallo en Supabase, usando respaldo local:", err);
+    loadLocalBackup();
+    showStatus("Modo Local", false);
   }
-
-  safeSetText("ammoCountDisplay", state.ammoCount);
-  const ladyDSel = $("ladyDModeSelect");
-  if (ladyDSel) ladyDSel.value = state.ladyDMode;
-
-  updateSpecterUI();
-  updateTraitButtonsUI();
-  await loadNotes();
-
-  const savedEquip = localStorage.getItem("lior_equipment");
-  if (savedEquip) {
-    try { state.equipment = JSON.parse(savedEquip); } catch(e) { initDefaultEquipment(); }
-  } else {
-    initDefaultEquipment();
-  }
-
-  renderAll();
 }
 
 function initDefaultEquipment() {
@@ -226,1157 +1253,352 @@ function initDefaultEquipment() {
     { id: "eq-16", name: "Poción 4d4 + 4", location: "carried", quantity: 1, type: "potion" },
     { id: "eq-17", name: "Pergamino de Ola Atronadora", location: "carried", quantity: 1, type: "scroll" }
   ];
-  saveEquipmentLocal();
+  saveLocalBackup();
 }
 
-function saveEquipmentLocal() {
+function initializeOfficialSkills() {
+  state.skills = Object.keys(SKILL_DEFINITIONS).map(k => {
+    let proficient = false;
+    let expertise = false;
+    if (k === "athletics" || k === "perception" || k === "religion") proficient = true;
+    if (k === "deception") { proficient = true; expertise = true; }
+    return { key: k, proficient, expertise };
+  });
+}
+
+function saveLocalBackup() {
   localStorage.setItem("lior_equipment", JSON.stringify(state.equipment));
+  localStorage.setItem("lior_state_backup", JSON.stringify({
+    combat: state.combat,
+    resources: state.resources,
+    companions: state.companions,
+    ladyD: state.ladyD,
+    equipment: state.equipment
+  }));
 }
 
-/* =========================================================
-   PUNTOS DE GOLPE (CON PV TEMPORALES)
-========================================================= */
-function updateHPUI() {
-  if (!state.character) return;
-  const cur = Number(state.character.current_hp);
-  const max = Number(state.character.max_hp) || 48;
-  const temp = Number(state.character.temporary_hp) || 0;
-
-  safeSetText("hpValue", `${cur} / ${max}`);
-  
-  const tempBadge = $("tempHpBadge");
-  if (tempBadge) {
-    if (temp > 0) {
-      tempBadge.style.display = "inline-block";
-      tempBadge.textContent = `+${temp} Temp`;
-    } else {
-      tempBadge.style.display = "none";
-    }
-  }
-
-  const bar = $("hpBar");
-  if (bar) {
-    const percentage = Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
-    bar.style.width = `${percentage}%`;
-  }
-}
-
-async function modifyHP(delta) {
-  if (!state.character) return;
-  let current = Number(state.character.current_hp) || 0;
-  let temp = Number(state.character.temporary_hp) || 0;
-  const max = Number(state.character.max_hp) || 48;
-
-  if (delta < 0) {
-    let damage = Math.abs(delta);
-    if (temp > 0) {
-      if (damage <= temp) {
-        temp -= damage;
-        damage = 0;
-      } else {
-        damage -= temp;
-        temp = 0;
-      }
-      state.character.temporary_hp = temp;
-    }
-    current = Math.max(0, current - damage);
-  } else {
-    current = Math.min(max, current + delta);
-  }
-
-  state.character.current_hp = current;
-  updateHPUI();
-
+function loadLocalBackup() {
+  const raw = localStorage.getItem("lior_state_backup");
+  if (!raw) return;
   try {
-    await db.from("characters").update({ 
-      current_hp: current, 
-      temporary_hp: temp 
+    const parsed = JSON.parse(raw);
+    Object.assign(state.combat, parsed.combat);
+    Object.assign(state.resources, parsed.resources);
+    Object.assign(state.companions, parsed.companions);
+    Object.assign(state.ladyD, parsed.ladyD);
+    if (parsed.equipment) state.equipment = parsed.equipment;
+  } catch (e) {}
+}
+
+async function persistCombatState() {
+  saveLocalBackup();
+  try {
+    await db.from("characters").update({
+      current_hp: state.combat.currentHp,
+      temporary_hp: state.combat.temporaryHp,
+      hexblade_curse_used: state.combat.hexbladeCurseUsed,
+      necrotic_shroud_used: state.combat.necroticShroudUsed,
+      healing_hands_used: state.combat.healingHandsUsed,
+      specter_state: state.companions.specter.state,
+      lady_d_mode: state.ladyD.mode
     }).eq("name", "Lior Kurogane");
-  } catch (e) {
-    console.warn("Guardado local de PV:", e);
-  }
+  } catch (e) {}
 }
 
-/* =========================================================
-   CONCENTRACIÓN EN COMBATE
-========================================================= */
-function setConcentration(spellName) {
-  if (state.activeConcentration && state.activeConcentration !== spellName) {
-    showRollModal("CONCENTRACIÓN ROTA", "⚡", `Has roto tu concentración previa en ${state.activeConcentration} para concentrarte en ${spellName}.`);
-  }
-  state.activeConcentration = spellName;
-  updateConcentrationUI();
-}
-
-function breakConcentration() {
-  state.activeConcentration = null;
-  state.combat.elemental_weapon_active = false;
-  const elemBtn = document.querySelector("[data-combat-toggle='elemental_weapon_active']");
-  if (elemBtn) elemBtn.classList.remove("active");
-  const check = $("check_elemental_weapon_active");
-  if (check) check.textContent = "○";
-
-  updateConcentrationUI();
-  renderAttacks();
-}
-
-function updateConcentrationUI() {
-  const display = $("concentrationDisplay");
-  if (!display) return;
-  if (state.activeConcentration) {
-    display.innerHTML = `<span>🔮 Concentración: <strong>${escapeHTML(state.activeConcentration)}</strong></span> <button class="tiny-button" style="color:var(--danger);" onclick="breakConcentration()">✕ Romper</button>`;
-  } else {
-    display.innerHTML = `<span>🔮 Concentración: <strong>Ninguna</strong></span>`;
-  }
-}
-
-/* =========================================================
-   VENTANA FLOTANTE DE RESULTADOS
-========================================================= */
-function showRollModal(title, total, detail) {
-  safeSetText("rollModalTitle", title);
-  safeSetText("rollModalTotal", total);
-  safeSetText("rollModalDetail", detail);
-  const modal = $("rollModal");
-  if (modal) modal.classList.add("active");
-}
-
-window.closeRollModal = function(e) {
-  if (e) e.stopPropagation();
-  const modal = $("rollModal");
-  if (modal) modal.classList.remove("active");
-};
-
-/* =========================================================
-   DEATH SAVES
-========================================================= */
-function renderDeathSaves() {
-  for (let i = 1; i <= 3; i++) {
-    const succ = $(`succ_${i}`);
-    const fail = $(`fail_${i}`);
-    if (succ) succ.classList.toggle("filled", i <= state.deathSuccesses);
-    if (fail) fail.classList.toggle("filled", i <= state.deathFailures);
-  }
-}
-
-window.toggleDeathDot = function(type, index) {
-  if (type === 'success') {
-    state.deathSuccesses = (state.deathSuccesses === index) ? index - 1 : index;
-  } else {
-    state.deathFailures = (state.deathFailures === index) ? index - 1 : index;
-  }
-  renderDeathSaves();
-  checkDeathSavesCondition();
-};
-
-window.resetDeathSaves = function() {
-  state.deathSuccesses = 0;
-  state.deathFailures = 0;
-  renderDeathSaves();
-};
-
-window.rollDeathSave = function() {
-  if (state.deathSuccesses >= 3 || state.deathFailures >= 3) {
-    showRollModal("SALVACIÓN CONTRA LA MUERTE", "COMPLETADO", "Las tiradas ya terminaron. Usa 'Limpiar' para reiniciar.");
-    return;
-  }
-
-  const d20 = Math.floor(Math.random() * 20) + 1;
-
-  if (d20 === 20) {
-    state.character.current_hp = 1;
-    state.deathSuccesses = 0;
-    state.deathFailures = 0;
-    updateHPUI();
-    renderDeathSaves();
-    showRollModal("SALVACIÓN CONTRA LA MUERTE", "¡20 NATURAL!", "¡Milagro! Recuperas la consciencia inmediatamente con 1 PV.");
-    return;
-  } else if (d20 === 1) {
-    state.deathFailures = Math.min(3, state.deathFailures + 2);
-    showRollModal("SALVACIÓN CONTRA LA MUERTE", "¡PIFIA! (1)", "Fallo crítico: Recibes 2 fallos automáticos.");
-  } else if (d20 >= 10) {
-    state.deathSuccesses = Math.min(3, state.deathSuccesses + 1);
-    showRollModal("SALVACIÓN CONTRA LA MUERTE", `ÉXITO (${d20})`, "Tirada de 10 o superior: Sumas 1 éxito.");
-  } else {
-    state.deathFailures = Math.min(3, state.deathFailures + 1);
-    showRollModal("SALVACIÓN CONTRA LA MUERTE", `FALLO (${d20})`, "Tirada de 9 o inferior: Sumas 1 fallo.");
-  }
-
-  renderDeathSaves();
-  checkDeathSavesCondition();
-};
-
-function checkDeathSavesCondition() {
-  if (state.deathSuccesses >= 3) {
-    showRollModal("ESTABILIZADO", "✨ VIVO", "Has acumulado 3 éxitos. Lior está fuera de peligro inmediato a 0 PV.");
-  } else if (state.deathFailures >= 3) {
-    showRollModal("HAS MUERTO", "☠ 3 FALLOS", "Lior ha muerto. Se añadirá un sello a tu Tarjeta de Lealtad.");
-    window.toggleDeathStamp(Math.min(10, state.deaths + 1));
-    state.deathSuccesses = 0;
-    state.deathFailures = 0;
-    renderDeathSaves();
-  }
-}
-
-/* =========================================================
-   TARJETA DE FIDELIDAD DE MUERTES
-========================================================= */
-function renderLoyaltyCard() {
-  const container = $("loyaltySlotsContainer");
-  if (!container) return;
-
-  safeSetText("deathLoyaltyCount", state.deaths);
-
-  let html = "";
-  for (let i = 1; i <= 10; i++) {
-    const isStamped = i <= state.deaths;
-    if (isStamped && !state.stampRotations[i]) {
-      state.stampRotations[i] = Math.floor(Math.random() * 91) - 45;
-    }
-    const rot = state.stampRotations[i] || 0;
-
-    html += `
-      <div class="loyalty-slot" onclick="toggleDeathStamp(${i})" title="Sello ${i}">
-        ${isStamped 
-          ? `<img src="logo.png" class="stamp-img" style="transform: rotate(${rot}deg);" alt="Sello">` 
-          : `<span class="slot-number">${i}</span>`}
-      </div>
-    `;
-  }
-  container.innerHTML = html;
-}
-
-window.toggleDeathStamp = async function(slotNum) {
-  if (slotNum === state.deaths) {
-    state.deaths = slotNum - 1;
-    delete state.stampRotations[slotNum];
-  } else {
-    state.deaths = slotNum;
-    state.stampRotations[slotNum] = Math.floor(Math.random() * 91) - 45;
-  }
-
-  localStorage.setItem("lior_deaths", state.deaths);
-  renderLoyaltyCard();
-
-  if (state.deaths === 10) {
-    playGruntCheer();
-    if (typeof confetti === "function") {
-      confetti({
-        particleCount: 150,
-        spread: 90,
-        origin: { y: 0.6 }
-      });
-    }
-  }
-
+async function persistResources() {
+  saveLocalBackup();
   try {
-    await db.from("characters").update({ deaths: state.deaths }).eq("name", "Lior Kurogane");
-  } catch (e) {
-    console.warn("Guardado local muertes:", e);
-  }
-};
-
-/* =========================================================
-   CA CON DESGLOSE DINÁMICO
-========================================================= */
-function calculateACDetails() {
-  const dexMod = calcMod(state.character.dexterity);
-  const equippedArmor = state.equipment.find(i => i.type === 'armor' && i.location === 'equipped');
-  const equippedShield = state.equipment.find(i => i.type === 'shield' && i.location === 'equipped');
-
-  let totalAC = 10 + dexMod;
-  let breakdown = `Base 10 + DES (${signed(dexMod)})`;
-
-  if (equippedArmor) {
-    const allowedDex = equippedArmor.maxDex !== undefined ? Math.min(dexMod, equippedArmor.maxDex) : dexMod;
-    totalAC = (equippedArmor.baseAC || 14) + allowedDex;
-    breakdown = `${equippedArmor.name} (${equippedArmor.baseAC}) + DES (${signed(allowedDex)})`;
-  }
-
-  if (equippedShield) {
-    totalAC += (equippedShield.bonusAC || 2);
-    breakdown += ` + ${equippedShield.name} (+${equippedShield.bonusAC || 2})`;
-  }
-
-  return { totalAC, breakdown };
+    await db.from("characters").update({
+      spell_slots_level_3: state.resources.pactSlots,
+      ammo: state.resources.ammunition,
+      deaths: state.resources.deaths,
+      gold: state.resources.currency.gp,
+      silver: state.resources.currency.sp,
+      copper: state.resources.currency.cp
+    }).eq("name", "Lior Kurogane");
+  } catch (e) {}
 }
 
-/* =========================================================
-   ATAQUES SINCRONIZADOS CON EL INVENTARIO DE EQUIPO
-========================================================= */
-function renderAttacks() {
-  const tbody = $("attacksTableBody");
-  if (!tbody || !state.character) return;
+async function persistEquipment(item) {
+  try {
+    await db.from("character_equipment").upsert({
+      id: item.id.includes("eq-") ? undefined : item.id,
+      name: item.name,
+      quantity: item.quantity,
+      location: item.location
+    });
+  } catch (e) {}
+}
 
-  const c = state.character;
-  const prof = calcProf(c.class_level);
-  const chaMod = calcMod(c.charisma);
-  const dexMod = calcMod(c.dexterity);
-  const strMod = calcMod(c.strength);
+async function deleteEquipmentFromDB(itemId) {
+  try {
+    await db.from("character_equipment").delete().eq("id", itemId);
+  } catch (e) {}
+}
 
-  // Filtrar para mostrar sólo las armas que sigan existiendo y estén equipadas (salvo el truco mágico)
-  const activeAttacks = OFFICIAL_ATTACKS_BASE.filter(atk => {
-    if (atk.isSpell) return true; // Descarga sobrenatural siempre disponible
-    // Comprobar si existe un arma en el equipo que coincida en nombre y esté "equipped"
-    return state.equipment.some(item => 
-      item.type === 'weapon' && 
-      item.location === 'equipped' && 
-      item.name.trim().toLowerCase() === atk.name.trim().toLowerCase()
-    );
+/* --------------------------------------------------------------------------
+   EXPOSICIÓN GLOBAL
+   -------------------------------------------------------------------------- */
+window.performAttack = performAttack;
+window.triggerSmite = triggerSmite;
+window.cycleEquipmentLocation = cycleEquipmentLocation;
+window.deleteEquipmentItem = deleteEquipmentItem;
+window.openSpellDetails = openSpellDetails;
+window.castSpellFromModal = castSpellFromModal;
+window.toggleLoyaltyStamp = toggleLoyaltyStamp;
+window.useNecroticShroud = useNecroticShroud;
+window.useHealingHands = useHealingHands;
+window.toggleHexbladeCurse = toggleHexbladeCurse;
+
+window.rollSkillCheck = function(skillKey) {
+  const def = SKILL_DEFINITIONS[skillKey];
+  const bonus = getSkillBonus(skillKey);
+  const d20 = rollDice(1, 20).total;
+  const total = d20 + bonus;
+
+  openModal(`PRUEBA: ${def.name.toUpperCase()}`, `
+    <div class="roll-result">
+      <div class="d20">${d20}</div>
+      <div class="total">${total}</div>
+      <p>d20 (${d20}) + Bono (${signed(bonus)}) [${def.ability.substring(0,3).toUpperCase()}]</p>
+    </div>
+  `);
+};
+
+window.rollSavingThrow = function(ability) {
+  const bonus = getSavingThrowBonus(ability);
+  const d20 = rollDice(1, 20).total;
+  const total = d20 + bonus;
+
+  openModal(`SALVACIÓN: ${ability.toUpperCase()}`, `
+    <div class="roll-result">
+      <div class="d20">${d20}</div>
+      <div class="total">${total}</div>
+      <p>d20 (${d20}) + Salvación (${signed(bonus)})</p>
+    </div>
+  `);
+};
+
+window.toggleSkillProficiency = function(skillKey) {
+  const sk = state.skills.find(s => s.key === skillKey);
+  if (!sk) return;
+  sk.proficient = !sk.proficient;
+  if (!sk.proficient) sk.expertise = false;
+  renderSheet();
+  renderCombat();
+};
+
+window.toggleSkillExpertise = function(skillKey) {
+  const sk = state.skills.find(s => s.key === skillKey);
+  if (!sk) return;
+  sk.expertise = !sk.expertise;
+  if (sk.expertise) sk.proficient = true;
+  renderSheet();
+  renderCombat();
+};
+
+window.deleteNoteItem = async function(noteId) {
+  state.notes = state.notes.filter(n => n.id !== noteId);
+  renderDiary();
+  try {
+    await db.from("campaign_notes").delete().eq("id", noteId);
+  } catch (e) {}
+};
+
+function bindEvents() {
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      const target = btn.dataset.tab;
+      $(target)?.classList.add("active");
+    });
   });
 
-  if (activeAttacks.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:12px;">No tienes armas equipadas en el inventario.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = activeAttacks.map(atk => {
-    let bonus = 0;
-    let damageText = atk.dmgDie;
-
-    if (atk.name === "Red") {
-      bonus = prof + dexMod;
-      damageText = "—";
-    } else if (atk.name === "Descarga sobrenatural") {
-      bonus = prof + chaMod;
-      damageText = `${atk.dmgDie} (2 rayos)`;
-    } else if (atk.isPact) {
-      bonus = prof + chaMod + 1;
-      let dmgBonus = chaMod + 1;
-      if (state.combat.elemental_weapon_active) {
-        bonus += 1;
-        damageText = `${atk.dmgDie} + ${dmgBonus} + 1d4 elem`;
-      } else {
-        damageText = `${atk.dmgDie} + ${dmgBonus}`;
-      }
-    } else if (atk.name === "Espada larga platinada") {
-      bonus = prof + strMod + 1;
-      damageText = `${atk.dmgDie} + ${strMod + 1}`;
-    } else if (atk.name === "Daga") {
-      bonus = prof + dexMod;
-      damageText = `${atk.dmgDie} + ${dexMod}`;
-    }
-
-    const safeName = escapeHTML(atk.name);
-    const safeDamage = escapeHTML(damageText);
-    const safeDie = escapeHTML(atk.dmgDie);
-    const safeType = escapeHTML(atk.dmgType);
-
-    return `
-      <tr onclick="rollAttack('${safeName.replaceAll("'", "\\'")}', ${bonus}, '${safeDamage.replaceAll("'", "\\'")}', '${safeDie.replaceAll("'", "\\'")}', ${Boolean(atk.isFirearm)})">
-        <td><strong>${safeName}</strong></td>
-        <td><b style="color:var(--bronze);">${signed(bonus)}</b></td>
-        <td>${damageText}</td>
-        <td><small style="color:var(--muted);">${safeType}</small></td>
-      </tr>
-    `;
-  }).join("");
-}
-
-window.rollAttack = async function(name, bonus, damageText, dmgDie, isFirearm) {
-  if (isFirearm) {
-    if (state.ammoCount <= 0) {
-      showRollModal("SIN MUNICIÓN", "⚠️ 0 BALAS", "Debes recargar tu cartuchera antes de disparar.");
-      return;
-    }
-    state.ammoCount--;
-    safeSetText("ammoCountDisplay", state.ammoCount);
-    localStorage.setItem("lior_ammo", state.ammoCount);
-    try {
-      await db.from("characters").update({ ammo: state.ammoCount }).eq("name", "Lior Kurogane");
-    } catch(e) {}
-  }
-
-  const d20 = Math.floor(Math.random() * 20) + 1;
-  const isCrit = (state.combat.hexblade_curse_active && d20 >= 19) || d20 === 20;
-  const total = d20 + Number(bonus);
-
-  let title = isCrit ? `⚔ ¡CRÍTICO CON ${name.toUpperCase()}!` : `⚔ ATAQUE: ${name.toUpperCase()}`;
-  let totalText = isCrit ? `¡${total}! (CRÍTICO)` : `Impacto: ${total}`;
-  let smiteNotice = isCrit ? " · ¡CRÍTICO! Duplica dados del arma y Eldritch Smite (8d8)." : "";
-  let ammoNotice = isFirearm ? ` [Balas restantes: ${state.ammoCount}]` : "";
-  let detail = `d20 (${d20}) + ${bonus} | Daño: ${damageText}${smiteNotice}${ammoNotice}`;
-
-  showRollModal(title, totalText, detail);
-};
-
-/* =========================================================
-   DERIVADOS & HABILIDADES
-========================================================= */
-function renderDerived() {
-  const c = state.character;
-  if (!c) return;
-
-  const level = Number(c.class_level) || 1;
-  const prof = calcProf(level);
-
-  const mods = {
-    strength: calcMod(c.strength),
-    dexterity: calcMod(c.dexterity),
-    constitution: calcMod(c.constitution),
-    intelligence: calcMod(c.intelligence),
-    wisdom: calcMod(c.wisdom),
-    charisma: calcMod(c.charisma)
-  };
-
-  safeSetText("headerLevel", level);
-  safeSetText("levelValueDisplay", level);
-  safeSetText("profDisplay", prof);
-  safeSetText("guideProfDmg", prof);
-  safeSetText("curseDmgBonus", prof);
-  safeSetText("curseHealBonus", level + mods.charisma);
-
-  safeSetText("necroticDcDisplay", 8 + prof + mods.charisma);
-  safeSetText("necroticDmgDisplay", level);
-  safeSetText("healingHandsValue", level);
-
-  const acInfo = calculateACDetails();
-  safeSetText("combatAC", acInfo.totalAC);
-  safeSetText("acBreakdownText", acInfo.breakdown);
-  safeSetText("combatInit", signed(mods.dexterity));
-
-  Object.keys(mods).forEach(stat => {
-    const input = $(`score_${stat}`);
-    const modDisplay = $(`mod_${stat}`);
-    if (input) input.value = c[stat];
-    if (modDisplay) modDisplay.textContent = signed(mods[stat]);
+  document.querySelectorAll("[data-hp]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const delta = parseInt(btn.dataset.hp, 10);
+      if (delta < 0) applyDamage(Math.abs(delta));
+      else healCharacter(delta);
+    });
   });
 
-  const proficientSkills = ["atletismo", "percepción", "religión"];
-  const expertiseSkills = ["engañar"];
-  const skillsContainer = $("fullSkillsList");
+  $("tempHpBtn")?.addEventListener("click", () => {
+    const val = prompt("Puntos de golpe temporales a asignar:", state.combat.temporaryHp);
+    if (val !== null) setTemporaryHp(parseInt(val, 10) || 0);
+  });
 
-  if (skillsContainer) {
-    skillsContainer.innerHTML = DND_SKILLS.map(skill => {
-      const key = skill.name.toLowerCase();
-      let total = mods[skill.stat];
-      let mark = "";
+  $("curseToggle")?.addEventListener("click", toggleHexbladeCurse);
+  $("elementalToggle")?.addEventListener("click", () => {
+    state.combat.elementalWeaponActive = !state.combat.elementalWeaponActive;
+    if (state.combat.elementalWeaponActive) setConcentration("Arma elemental");
+    else if (state.combat.activeConcentration === "Arma elemental") breakConcentration();
+    renderCombat();
+  });
 
-      if (expertiseSkills.includes(key)) {
-        total += prof * 2;
-        mark = " ✦✦";
-      } else if (proficientSkills.includes(key)) {
-        total += prof;
-        mark = " ✦";
-      }
+  $("breakConcentration")?.addEventListener("click", breakConcentration);
 
-      return `
-        <div onclick="rollSkillCheck('${escapeHTML(skill.name).replaceAll("'", "\\'")}', ${total})">
-          <span>${escapeHTML(skill.name)}${mark} <small style="color:var(--muted)">(${skill.stat.substring(0,3).toUpperCase()})</small></span>
-          <b>${signed(total)}</b>
-        </div>
-      `;
-    }).join("");
-  }
+  $("rollDeath")?.addEventListener("click", rollDeathSave);
+  $("clearSaves")?.addEventListener("click", resetDeathSaves);
 
-  safeSetText("magicDCDisplay", 8 + prof + mods.charisma);
-  safeSetText("magicAtkDisplay", signed(prof + mods.charisma));
-
-  renderCompanions();
-  renderAttacks();
-  renderDeathSaves();
-}
-
-window.rollSkillCheck = function(name, bonus) {
-  const d20 = Math.floor(Math.random() * 20) + 1;
-  const total = d20 + Number(bonus);
-  showRollModal(`PRUEBA DE ${name.toUpperCase()}`, `Resultado: ${total}`, `d20 (${d20}) + bono (${signed(bonus)})`);
-};
-
-/* ACCIONES DE RASGOS */
-window.useTraitAction = function(type) {
-  if (type === 'passage') {
-    showRollModal("PASAJE MARÍTIMO", "⚓ VIAJE GRATUITO", "Puedes asegurar transporte gratuito para el grupo en cualquier embarcación bajo las condiciones del DM, a cambio de que sirvan a la tripulación.");
-  }
-};
-
-window.useNecroticShroud = async function() {
-  if (state.necroticShroudUsed) {
-    showRollModal("MORTAJA NECRÓTICA", "⚠️ YA UTILIZADA", "Ya usaste Mortaja Necrótica hoy. Se restaura al finalizar un Descanso Largo.");
-    return;
-  }
-  const prof = calcProf(state.character.class_level);
-  const chaMod = calcMod(state.character.charisma);
-  const dc = 8 + prof + chaMod;
-  const dmg = state.character.class_level;
-
-  state.necroticShroudUsed = true;
-  updateTraitButtonsUI();
-  try { await db.from("characters").update({ necrotic_shroud_used: true }).eq("name", "Lior Kurogane"); } catch(e){}
-
-  showRollModal("MORTAJA NECRÓTICA", "💀 ACTIVADA", `• Criaturas a 10 pies deben superar salvación de CARISMA (CD ${dc}) o quedarán asustadas.\n• Infliges +${dmg} de daño necrótico adicional 1/turno.`);
-};
-
-window.useHealingHands = async function() {
-  if (state.healingHandsUsed) {
-    showRollModal("MANOS CURATIVAS", "⚠️ AGOTADO", "Ya utilizaste Manos Curativas hoy. Se restaura al finalizar un Descanso Largo.");
-    return;
-  }
-  const heal = Number(state.character.class_level) || 6;
-  modifyHP(heal);
-  state.healingHandsUsed = true;
-  updateTraitButtonsUI();
-  try { await db.from("characters").update({ healing_hands_used: true }).eq("name", "Lior Kurogane"); } catch(e){}
-
-  showRollModal("MANOS CURATIVAS", `💚 +${heal} PV`, `Has tocado a un aliado (o a ti misma) para sanar ${heal} puntos de golpe.`);
-};
-
-function updateTraitButtonsUI() {
-  const hhBtn = $("btnHealingHands");
-  if (hhBtn) hhBtn.disabled = state.healingHandsUsed;
-
-  const nsBtn = $("btnNecroticShroud");
-  if (nsBtn) nsBtn.disabled = state.necroticShroudUsed;
-
-  const curseBtn = $("btnHexbladeCurseToggle");
-  if (curseBtn) {
-    if (state.hexbladeCurseUsed && !state.combat.hexblade_curse_active) {
-      curseBtn.disabled = true;
-      safeSetText("curseStatusText", "⚠️ Maldición ya consumida (Restablece en Descanso Corto/Largo)");
+  $("shootBtn")?.addEventListener("click", () => {
+    if (state.resources.ammunition > 0) {
+      state.resources.ammunition -= 1;
+      renderCombat();
+      persistResources();
     } else {
-      curseBtn.disabled = false;
-      safeSetText("curseStatusText", `Crítico 19-20 · +${calcProf(state.character?.class_level || 6)} daño · Sana al morir`);
+      showToast("Sin balas.");
     }
-  }
-}
-
-/* =========================================================
-   REGLA CASERA DE LADY D. (4 MODALIDADES)
-========================================================= */
-window.changeLadyDMode = async function(mode) {
-  state.ladyDMode = mode;
-  renderSpells();
-  try {
-    await db.from("characters").update({ lady_d_mode: mode }).eq("name", "Lior Kurogane");
-  } catch(e) {}
-  
-  const labels = {
-    cantrip_free: "Truco Puro (Coste 0 · Cero Daño)",
-    cantrip_damage: "Pacto Doloroso (Coste 0 · Contra Tirada de Daño)",
-    normal_slot: "Normal (Consume Espacio de Pacto)",
-    slot_plus_damage: "Sobrecarga (Espacio de Pacto + Daño Personal)"
-  };
-  showRollModal("MARCA DE LADY D.", "CONDICIÓN DIARIA", `Modo activo: ${labels[mode]}`);
-};
-
-window.stepLevel = function(delta) {
-  if (!state.character) return;
-  state.character.class_level = Math.max(1, Math.min(20, Number(state.character.class_level) + Number(delta)));
-  renderDerived();
-  db.from("characters").update({ class_level: state.character.class_level }).eq("name", "Lior Kurogane");
-};
-
-window.stepStat = function(stat, delta) {
-  if (!state.character || !(stat in state.character)) return;
-  state.character[stat] = Math.max(1, Math.min(30, Number(state.character[stat]) + Number(delta)));
-  renderDerived();
-  db.from("characters").update({ [stat]: state.character[stat] }).eq("name", "Lior Kurogane");
-};
-
-/* =========================================================
-   INVENTARIO & ELIMINACIÓN CON SINCRONIZACIÓN DE ARMAS
-========================================================= */
-function renderEquipment() {
-  const container = $("equipmentListCategorized");
-  if (!container) return;
-
-  container.innerHTML = state.equipment.map(item => {
-    const locText = item.location === "equipped" ? "⚔ Equipado" : (item.location === "stored" ? "📦 Almacenado" : "🎒 Cargado");
-    const extraType = item.type === "armor" ? " (Armadura)" : (item.type === "shield" ? " (Escudo)" : "");
-
-    return `
-      <div class="item-row">
-        <div style="flex:1;">
-          <strong>${escapeHTML(item.name)}</strong>
-          <small style="color:var(--muted);">Cantidad: ${item.quantity}${extraType}</small>
-        </div>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button class="secondary-action ${item.location === 'equipped' ? 'active' : ''}" onclick="cycleItem('${item.id}')">
-            ${locText}
-          </button>
-          <button class="tiny-button" style="color:var(--danger); font-size:16px; padding:4px 8px;" onclick="deleteItem('${item.id}')" title="Eliminar objeto">✕</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-window.cycleItem = function(id) {
-  const item = state.equipment.find(i => i.id === id);
-  if (!item) return;
-
-  const states = ["equipped", "carried", "stored"];
-  item.location = states[(states.indexOf(item.location) + 1) % states.length];
-  saveEquipmentLocal();
-  renderEquipment();
-  renderDerived(); // Recalcula CA y lista de ataques activos
-};
-
-window.deleteItem = function(id) {
-  state.equipment = state.equipment.filter(i => i.id !== id);
-  saveEquipmentLocal();
-  renderEquipment();
-  renderDerived(); // Elimina el arma de los ataques si correspondía
-};
-
-/* =========================================================
-   CONJUROS CON LADY D. INTEGRADA
-========================================================= */
-function renderSpells() {
-  safeSetText("magicSlotDisplay", `${state.spellSlots} / 2`);
-  const container = $("spellsFullList");
-  if (!container) return;
-
-  container.innerHTML = OFFICIAL_SPELLS.map((sp, idx) => {
-    let levelTag = sp.level;
-    let subtitle = `${sp.time} · ${sp.range} ${sp.concentration ? '· [Concentración]' : ''}`;
-
-    if (sp.name.includes("Infligir heridas")) {
-      switch (state.ladyDMode) {
-        case 'cantrip_free':
-          levelTag = "Truco (Coste 0)";
-          subtitle = "Ilimitado · Sin daño personal";
-          break;
-        case 'cantrip_damage':
-          levelTag = "Truco (Dolor)";
-          subtitle = "Ilimitado · Requiere contra tirada de daño";
-          break;
-        case 'normal_slot':
-          levelTag = "Nivel 3 (Pacto)";
-          subtitle = "Consume 1 espacio de pacto";
-          break;
-        case 'slot_plus_damage':
-          levelTag = "Sobrecarga";
-          subtitle = "Consume espacio de pacto + Daño personal";
-          break;
-      }
-    }
-
-    return `
-      <div class="item-row" onclick="openSpellModal(${idx})" style="cursor:pointer;">
-        <div>
-          <strong>${escapeHTML(sp.name)}</strong>
-          <small style="color:var(--muted);">${escapeHTML(subtitle)}</small>
-        </div>
-        <span class="tag">${escapeHTML(levelTag)}</span>
-      </div>
-    `;
-  }).join("");
-}
-
-window.openSpellModal = function(idx) {
-  const sp = OFFICIAL_SPELLS[idx];
-  if (!sp) return;
-
-  state.activeModalSpell = sp;
-  safeSetText("modalSpellName", sp.name);
-  safeSetText("modalSpellLevel", sp.level);
-  safeSetText("modalSpellTime", sp.time);
-  safeSetText("modalSpellRange", sp.range);
-  safeSetText("modalSpellDuration", sp.duration);
-
-  let effectText = sp.damage;
-  let descText = sp.desc;
-
-  if (sp.name.includes("Infligir heridas")) {
-    switch (state.ladyDMode) {
-      case 'cantrip_free':
-        effectText = "3d10 daño necrótico";
-        descText = "Modo Truco Puro: 0 coste de pacto y 0 daño personal por gracia de la Dama.";
-        break;
-      case 'cantrip_damage':
-        effectText = "3d10 necrótico Y sufres 1d4 de daño inevitable";
-        descText = "Modo Pacto Doloroso: Canalizas sufrimiento personal para herir sin gastar recursos mágicos.";
-        break;
-      case 'normal_slot':
-        effectText = "5d10 daño necrótico (Slot Nivel 3)";
-        descText = "Modo Normal: Invocas el conjuro utilizando un espacio de pacto de Brujo regular.";
-        break;
-      case 'slot_plus_damage':
-        effectText = "5d10 daño necrótico Y sufres 1d4 de daño inevitable";
-        descText = "Modo Sobrecarga: Gastas un espacio de pacto y ofreces sufrimiento personal a la Dama del Dolor.";
-        break;
-    }
-  }
-
-  const eff = $("modalSpellEffect");
-  if (eff) eff.innerHTML = `<b>Efecto:</b> ${escapeHTML(effectText)}<br><br>${escapeHTML(descText)} ${sp.concentration ? '<br><b style="color:var(--bronze);">Requiere Concentración</b>' : ''}`;
-
-  const btn = $("modalCastSpellBtn");
-  if (btn) {
-    if (sp.isCantrip || (sp.name.includes("Infligir heridas") && (state.ladyDMode === 'cantrip_free' || state.ladyDMode === 'cantrip_damage'))) {
-      btn.textContent = "Lanzar (Sin Espacios de Pacto)";
-      btn.disabled = false;
-    } else {
-      btn.textContent = `Lanzar (${state.spellSlots}/2 Espacios)`;
-      btn.disabled = state.spellSlots <= 0;
-    }
-  }
-
-  const modal = $("spellModal");
-  if (modal) modal.classList.add("active");
-};
-
-window.closeSpellModal = function(e) {
-  if (e) e.stopPropagation();
-  const modal = $("spellModal");
-  if (modal) modal.classList.remove("active");
-  state.activeModalSpell = null;
-};
-
-async function castModalSpell() {
-  const sp = state.activeModalSpell;
-  if (!sp) return;
-
-  // Manejo especial de Infligir Heridas
-  if (sp.name.includes("Infligir heridas")) {
-    if (state.ladyDMode === 'cantrip_free') {
-      showRollModal("INFLIGIR HERIDAS", "💀 3d10 NECRÓTICO", "Lanzado como truco puro: 0 coste de espacios y 0 daño personal.");
-      closeSpellModal();
-      return;
-    } 
-    else if (state.ladyDMode === 'cantrip_damage') {
-      const selfDmg = Math.floor(Math.random() * 4) + 1;
-      modifyHP(-selfDmg);
-      showRollModal("INFLIGIR HERIDAS (DOLOR)", "💀 3d10 NECRÓTICO", `Coste 0 de pacto. La contra tirada de dolor te inflige ${selfDmg} puntos de daño a ti misma.`);
-      closeSpellModal();
-      return;
-    } 
-    else if (state.ladyDMode === 'normal_slot') {
-      if (state.spellSlots <= 0) {
-        showRollModal("SIN ESPACIOS", "0 / 2", "No tienes espacios de pacto disponibles.");
-        return;
-      }
-      state.spellSlots--;
-      renderSpells();
-      try { await db.from("characters").update({ spell_slots_level_3: state.spellSlots }).eq("name", "Lior Kurogane"); } catch(e){}
-      showRollModal("INFLIGIR HERIDAS", "💀 5d10 NECRÓTICO", "Lanzado con espacio de pacto de Nivel 3. Espacio consumido.");
-      closeSpellModal();
-      return;
-    } 
-    else if (state.ladyDMode === 'slot_plus_damage') {
-      if (state.spellSlots <= 0) {
-        showRollModal("SIN ESPACIOS", "0 / 2", "No tienes espacios de pacto disponibles.");
-        return;
-      }
-      state.spellSlots--;
-      const selfDmg = Math.floor(Math.random() * 4) + 1;
-      modifyHP(-selfDmg);
-      renderSpells();
-      try { await db.from("characters").update({ spell_slots_level_3: state.spellSlots }).eq("name", "Lior Kurogane"); } catch(e){}
-      showRollModal("INFLIGIR HERIDAS (SOBRECARGA)", "💀 5d10 NECRÓTICO", `Espacio consumido y contra tirada aplicada: sufres ${selfDmg} PV de daño personal.`);
-      closeSpellModal();
-      return;
-    }
-  }
-
-  // Resto de conjuros
-  if (sp.concentration) setConcentration(sp.name);
-
-  if (sp.name.includes("Armadura de Agathys")) {
-    state.character.temporary_hp = 15;
-    updateHPUI();
-    try {
-      await db.from("characters").update({ temporary_hp: 15 }).eq("name", "Lior Kurogane");
-    } catch(e) {}
-  }
-
-  if (!sp.isCantrip) {
-    if (state.spellSlots <= 0) {
-      showRollModal("SIN ESPACIOS", "0 / 2", "No tienes espacios de pacto disponibles.");
-      return;
-    }
-    state.spellSlots--;
-    renderSpells();
-    try {
-      await db.from("characters").update({ spell_slots_level_3: state.spellSlots }).eq("name", "Lior Kurogane");
-    } catch (e) {}
-  }
-  showRollModal("CONJURO LANZADO", `✨ ${sp.name}`, `Has lanzado ${sp.name} con éxito.`);
-  closeSpellModal();
-}
-
-/* =========================================================
-   COMPAÑEROS (ESPECTRO CON 3 ESTADOS)
-========================================================= */
-function renderCompanions() {
-  if (!state.character) return;
-  safeSetText("pourcoonHpDisplay", `${state.pourcoonHp} / ${state.pourcoonMaxHp}`);
-
-  const specterHp = Math.floor(state.character.class_level / 2);
-  safeSetText("specterHpDisplay", `${specterHp} PV`);
-  safeSetText("specterFormulaText", `${specterHp} PV`);
-
-  const chaMod = calcMod(state.character.charisma);
-  safeSetText("specterAtkBonus", signed(chaMod));
-  safeSetText("specterModText", signed(chaMod));
-  updateSpecterUI();
-}
-
-function updateSpecterUI() {
-  const btn = $("btnSpecterState");
-  if (!btn) return;
-  btn.classList.remove("active");
-
-  if (state.specterState === 'ready') {
-    btn.textContent = "💤 En reposo (Disponible)";
-    btn.style.borderColor = "var(--bronze)";
-    btn.style.color = "var(--text)";
-  } else if (state.specterState === 'summoned') {
-    btn.textContent = "👻 Convocado (Activo)";
-    btn.classList.add("active");
-  } else {
-    btn.textContent = "💀 Consumido (Muerto)";
-    btn.style.borderColor = "var(--danger)";
-    btn.style.color = "var(--danger)";
-  }
-}
-
-window.cycleSpecterState = async function() {
-  const states = ['ready', 'summoned', 'consumed'];
-  const next = states[(states.indexOf(state.specterState) + 1) % states.length];
-  state.specterState = next;
-  updateSpecterUI();
-  try {
-    await db.from("characters").update({ specter_state: next }).eq("name", "Lior Kurogane");
-  } catch(e) {}
-};
-
-/* =========================================================
-   DESCANSOS CON REINICIO EN BASE DE DATOS
-========================================================= */
-function resetCombatToggles() {
-  state.combat.hexblade_curse_active = false;
-  state.combat.elemental_weapon_active = false;
-  state.activeConcentration = null;
-
-  document.querySelectorAll("[data-combat-toggle]").forEach(btn => {
-    btn.classList.remove("active");
-    const key = btn.dataset.combatToggle;
-    const check = $(`check_${key}`);
-    if (check) check.textContent = "○";
   });
-  updateConcentrationUI();
-}
 
-function setupRests() {
-  const triggerShortRest = async () => {
-    state.spellSlots = 2;
-    state.hexbladeCurseUsed = false;
-    resetCombatToggles();
-    updateTraitButtonsUI();
-    renderSpells();
-    renderAttacks();
+  $("reloadBtn")?.addEventListener("click", () => {
+    state.resources.ammunition += 10;
+    renderCombat();
+    persistResources();
+  });
 
-    try {
-      await db.from("characters").update({ 
-        spell_slots_level_3: 2,
-        hexblade_curse_used: false
-      }).eq("name", "Lior Kurogane");
-    } catch (e) {}
+  $("ammoMinus5")?.addEventListener("click", () => {
+    state.resources.ammunition = Math.max(0, state.resources.ammunition - 5);
+    renderCombat();
+    persistResources();
+  });
 
-    showRollModal("DESCANSO CORTO (1H)", "⏳ COMPLETADO", "• Espacios de pacto restaurados a 2/2.\n• Maldición del Filo lista para usarse de nuevo.");
-  };
+  $("ammoSet")?.addEventListener("click", () => {
+    const val = prompt("Establecer cantidad de balas:", state.resources.ammunition);
+    if (val !== null) {
+      state.resources.ammunition = Math.max(0, parseInt(val, 10) || 0);
+      renderCombat();
+      persistResources();
+    }
+  });
 
-  $("btnShortRest")?.addEventListener("click", triggerShortRest);
+  $("shortRest")?.addEventListener("click", shortRest);
+  $("longRest")?.addEventListener("click", longRest);
 
-  $("btnLongRest")?.addEventListener("click", async () => {
-    state.character.max_hp = 48;
-    state.character.current_hp = 48;
-    state.character.temporary_hp = 0;
-    state.spellSlots = 2;
-    state.pourcoonHp = state.pourcoonMaxHp;
-    state.deathSuccesses = 0;
-    state.deathFailures = 0;
-    state.healingHandsUsed = false;
-    state.necroticShroudUsed = false;
-    state.hexbladeCurseUsed = false;
-    state.specterState = 'ready';
+  document.querySelectorAll("[data-coin]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const coin = btn.dataset.coin;
+      const delta = parseInt(btn.dataset.delta, 10);
+      state.resources.currency[coin] = Math.max(0, state.resources.currency[coin] + delta);
+      renderEquipment();
+      persistResources();
+    });
+  });
 
-    resetCombatToggles();
+  $("ladyMode")?.addEventListener("change", (e) => setLadyDMode(e.target.value));
+  $("addEquipment")?.addEventListener("click", addNewEquipment);
 
-    updateHPUI();
-    renderDeathSaves();
-    renderSpells();
+  document.querySelectorAll("[data-pour]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const d = parseInt(btn.dataset.pour, 10);
+      state.companions.pourcoon.currentHp = clamp(
+        state.companions.pourcoon.currentHp + d, 0, state.companions.pourcoon.maxHp
+      );
+      renderCompanions();
+    });
+  });
+
+  $("pourReset")?.addEventListener("click", () => {
+    state.companions.pourcoon.currentHp = state.companions.pourcoon.maxHp;
     renderCompanions();
-    renderAttacks();
-    updateTraitButtonsUI();
-
-    try {
-      await db.from("characters").update({ 
-        current_hp: 48, 
-        temporary_hp: 0,
-        spell_slots_level_3: 2,
-        specter_state: 'ready',
-        hexblade_curse_used: false,
-        necrotic_shroud_used: false,
-        healing_hands_used: false
-      }).eq("name", "Lior Kurogane");
-    } catch (e) {}
-
-    showRollModal("DESCANSO LARGO (8H)", "⛺ COMPLETADO", "• Vida restaurada al 100% (48/48 PV).\n• Espacios de pacto restaurados (2/2).\n• Salud de Pourcoon recuperada.\n• Espectro y rasgos diarios restablecidos.\n• Munición conservada intacta.");
   });
-}
 
-/* =========================================================
-   DIARIO DE CAMPAÑA PERSISTENTE
-========================================================= */
-async function loadNotes() {
-  try {
-    const { data, error } = await db
-      .from("campaign_notes")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      state.notes = data;
-      renderNotes();
+  $("pourDie")?.addEventListener("click", () => {
+    const d20 = rollDice(1, 20).total;
+    if (d20 === 12) {
+      state.companions.pourcoon.currentHp = 0;
+      openModal("POURCOON", `<p class="error">¡Crítico 12! Se muere solito.</p>`);
+    } else {
+      openModal("POURCOON", `<p class="ok">Tirada ${d20}. Sobrevive a la reacción.</p>`);
     }
-  } catch (err) {
-    console.warn("Carga de notas offline:", err);
-  }
-}
+    renderCompanions();
+  });
 
-function renderNotes() {
-  const container = $("notesContainer");
-  if (!container) return;
+  $("specterCycle")?.addEventListener("click", cycleSpecterState);
 
-  const filtered = state.noteFilter === 'all' 
-    ? state.notes 
-    : state.notes.filter(n => n.note_type === state.noteFilter);
+  $("saveNote")?.addEventListener("click", async () => {
+    const title = $("noteTitle")?.value.trim();
+    const note_type = $("noteType")?.value;
+    const content = $("noteContent")?.value.trim();
 
-  if (!filtered.length) {
-    container.innerHTML = `<p class="small-note">No hay entradas guardadas en esta categoría.</p>`;
-    return;
-  }
-
-  container.innerHTML = filtered.map(n => {
-    const typeBadge = n.note_type === 'npc' ? '👤 PNJ' : (n.note_type === 'quest' ? '🎯 MISIÓN' : '📖 SESIÓN');
-    return `
-      <div class="sheet-card" style="margin-bottom:8px; padding:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong style="color:var(--text); font-size:14px;">${escapeHTML(n.title)}</strong>
-          <span class="tag">${typeBadge}</span>
-        </div>
-        <p style="margin:8px 0 0; font-size:12px; color:#c9c7c2; white-space:pre-wrap; line-height:1.5;">${escapeHTML(n.content)}</p>
-      </div>
-    `;
-  }).join("");
-}
-
-function setupNotes() {
-  $("addNoteBtn")?.addEventListener("click", async () => {
-    const title = $("newNoteTitle")?.value.trim();
-    const content = $("newNoteContent")?.value.trim();
-    const note_type = $("newNoteType")?.value;
-
-    if (!title) return alert("Escribe un título para la entrada.");
+    if (!title) return showToast("Escribe un título.");
 
     const payload = {
-      character_id: state.character.id !== "lior-kurogane" ? state.character.id : null,
       title,
+      note_type,
       content,
-      note_type
+      character_id: state.character?.id
     };
 
     try {
       const { data, error } = await db.from("campaign_notes").insert([payload]).select();
       if (!error && data) {
         state.notes.unshift(data[0]);
-        $("newNoteTitle").value = "";
-        $("newNoteContent").value = "";
-        renderNotes();
-        showRollModal("BITÁCORA", "ENTRADA GUARDADA", "La nota se ha sincronizado correctamente con la base de datos de Supabase.");
-      } else {
-        throw error;
+        $("noteTitle").value = "";
+        $("noteContent").value = "";
+        renderDiary();
+        showToast("Nota guardada en Supabase.");
       }
     } catch (e) {
-      console.warn("Fallo guardado remoto, guardando local:", e);
       payload.id = `note-${Date.now()}`;
       state.notes.unshift(payload);
-      $("newNoteTitle").value = "";
-      $("newNoteContent").value = "";
-      renderNotes();
-      showRollModal("BITÁCORA", "GUARDADO LOCAL", "Nota archivada en el almacenamiento local.");
+      $("noteTitle").value = "";
+      $("noteContent").value = "";
+      renderDiary();
+      showToast("Nota guardada en local.");
     }
   });
 
-  document.querySelectorAll(".note-filter-btn").forEach(btn => {
+  $("noteFilter")?.addEventListener("change", (e) => {
+    state.ui.noteFilter = e.target.value;
+    renderDiary();
+  });
+
+  $("modalClose")?.addEventListener("click", closeModal);
+  $("modal")?.addEventListener("click", (e) => {
+    if (e.target === $("modal")) closeModal();
+  });
+
+  $("syncBtn")?.addEventListener("click", async () => {
+    await loadAllData();
+    renderApp();
+    showToast("Sincronizado");
+  });
+
+  document.querySelectorAll("[data-social]").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".note-filter-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      state.noteFilter = btn.dataset.filter;
-      renderNotes();
+      const type = btn.dataset.social;
+      if (type === "pasaje") {
+        openModal("PASAJE MARÍTIMO", `
+          <p>Puedes asegurar pasaje gratuito para ti y tus compañeros sirviendo a la tripulación.</p>
+          <button class="primary full" onclick="rollSkillCheck('persuasion')">Tirar Persuasión</button>
+        `);
+      } else {
+        openModal("PELEA DE TABERNA", `
+          <p>Resuelve una disputa ruda o gana el respeto del puerto.</p>
+          <div class="modal-actions">
+            <button class="primary" onclick="rollSkillCheck('athletics')">Atletismo (Fuerza)</button>
+            <button class="secondary" onclick="rollSkillCheck('intimidation')">Intimidar (Carisma)</button>
+          </div>
+        `);
+      }
     });
   });
 }
 
-/* =========================================================
-   CONTROLES DE COMBATE & TOGGLES
-========================================================= */
-function setupCombatToggles() {
-  $("btnHexbladeCurseToggle")?.addEventListener("click", async () => {
-    if (state.hexbladeCurseUsed && !state.combat.hexblade_curse_active) {
-      showRollModal("MALDICIÓN DEL FILO", "⚠️ AGOTADA", "Ya usaste la Maldición del Filo. Se recupera al completar un Descanso Corto o Largo.");
-      return;
-    }
-
-    state.combat.hexblade_curse_active = !state.combat.hexblade_curse_active;
-    const btn = $("btnHexbladeCurseToggle");
-    if (btn) btn.classList.toggle("active", state.combat.hexblade_curse_active);
-    const check = $("check_hexblade_curse_active");
-    if (check) check.textContent = state.combat.hexblade_curse_active ? "✓" : "○";
-
-    if (state.combat.hexblade_curse_active) {
-      state.hexbladeCurseUsed = true;
-      try { await db.from("characters").update({ hexblade_curse_used: true }).eq("name", "Lior Kurogane"); } catch(e){}
-    }
-    renderAttacks();
-  });
-
-  document.querySelector("[data-combat-toggle='elemental_weapon_active']")?.addEventListener("click", () => {
-    state.combat.elemental_weapon_active = !state.combat.elemental_weapon_active;
-    const btn = document.querySelector("[data-combat-toggle='elemental_weapon_active']");
-    btn?.classList.toggle("active", state.combat.elemental_weapon_active);
-    const check = $("check_elemental_weapon_active");
-    if (check) check.textContent = state.combat.elemental_weapon_active ? "✓" : "○";
-
-    if (state.combat.elemental_weapon_active) {
-      setConcentration("Arma elemental");
-    } else if (state.activeConcentration === "Arma elemental") {
-      breakConcentration();
-    }
-    renderAttacks();
-  });
-
-  $("hpMinus10Btn")?.addEventListener("click", () => modifyHP(-10));
-  $("hpMinusBtn")?.addEventListener("click", () => modifyHP(-1));
-  $("hpPlusBtn")?.addEventListener("click", () => modifyHP(1));
-  $("hpPlus10Btn")?.addEventListener("click", () => modifyHP(10));
-
-  $("btnSetTempHp")?.addEventListener("click", async () => {
-    const val = prompt("Introduce puntos de golpe temporales a asignar:", state.character.temporary_hp || "15");
-    if (val !== null && val.trim() !== "") {
-      const parsed = Math.max(0, parseInt(val, 10) || 0);
-      state.character.temporary_hp = parsed;
-      updateHPUI();
-      try {
-        await db.from("characters").update({ temporary_hp: parsed }).eq("name", "Lior Kurogane");
-      } catch(e) {}
-    }
-  });
-
-  $("btnShootAmmo")?.addEventListener("click", async () => {
-    if (state.ammoCount <= 0) return showRollModal("SIN MUNICIÓN", "⚠️ 0 BALAS", "No tienes balas en la cartuchera.");
-    state.ammoCount--;
-    safeSetText("ammoCountDisplay", state.ammoCount);
-    localStorage.setItem("lior_ammo", state.ammoCount);
-    try {
-      await db.from("characters").update({ ammo: state.ammoCount }).eq("name", "Lior Kurogane");
-    } catch(e) {}
-  });
-
-  $("btnReloadAmmo")?.addEventListener("click", async () => {
-    state.ammoCount += 10;
-    safeSetText("ammoCountDisplay", state.ammoCount);
-    localStorage.setItem("lior_ammo", state.ammoCount);
-    try {
-      await db.from("characters").update({ ammo: state.ammoCount }).eq("name", "Lior Kurogane");
-    } catch(e) {}
-  });
-
-  $("btnPourcoonHpMinus")?.addEventListener("click", () => {
-    state.pourcoonHp = Math.max(0, state.pourcoonHp - 1);
-    renderCompanions();
-  });
-
-  $("btnPourcoonHpPlus")?.addEventListener("click", () => {
-    state.pourcoonHp = Math.min(state.pourcoonMaxHp, state.pourcoonHp + 1);
-    renderCompanions();
-  });
-
-  $("btnPourcoonReset")?.addEventListener("click", () => {
-    state.pourcoonHp = state.pourcoonMaxHp;
-    renderCompanions();
-  });
-
-  $("addItemBtn")?.addEventListener("click", () => {
-    const nameInput = $("newItemName");
-    const qtyInput = $("newItemQty");
-    if (!nameInput) return;
-
-    const name = nameInput.value.trim();
-    const qty = Number(qtyInput?.value) || 1;
-    if (!name) return;
-
-    let type = 'item';
-    let baseAC, maxDex, bonusAC;
-    const lower = name.toLowerCase();
-
-    if (lower.includes('escudo') || lower.includes('broquel')) {
-      type = 'shield';
-      bonusAC = 2;
-    } else if (lower.includes('coraza') || lower.includes('armadura')) {
-      type = 'armor';
-      baseAC = 14;
-      maxDex = 2;
-    } else if (
-      lower.includes('pistola') || 
-      lower.includes('mosquete') || 
-      lower.includes('arpón') || 
-      lower.includes('arpon') || 
-      lower.includes('espada') || 
-      lower.includes('daga') || 
-      lower.includes('red')
-    ) {
-      type = 'weapon';
-    }
-
-    state.equipment.push({
-      id: `eq-${Date.now()}`,
-      name,
-      quantity: qty,
-      location: 'carried',
-      type,
-      baseAC,
-      maxDex,
-      bonusAC
-    });
-
-    saveEquipmentLocal();
-    nameInput.value = "";
-    if (qtyInput) qtyInput.value = 1;
-    renderEquipment();
-    renderDerived(); // Recalcula CA y ataques
-  });
+/* --------------------------------------------------------------------------
+   INICIALIZACIÓN
+   -------------------------------------------------------------------------- */
+async function initApp() {
+  try {
+    bindEvents();
+    await loadAllData();
+    renderApp();
+  } catch (error) {
+    console.error("Error inicializando aplicación:", error);
+    showStatus("Error", false);
+  }
 }
 
-/* =========================================================
-   RENDER CENTRAL
-========================================================= */
-function renderAll() {
-  updateHPUI();
-  renderLoyaltyCard();
-  renderDerived();
-  renderEquipment();
-  renderSpells();
-  renderCompanions();
-  renderDeathSaves();
-  updateConcentrationUI();
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-  setupTabs();
-  setupCombatToggles();
-  setupRests();
-  setupNotes();
-
-  $("modalCastSpellBtn")?.addEventListener("click", castModalSpell);
-
-  const modal = $("spellModal");
-  modal?.addEventListener("click", (e) => {
-    if (e.target === modal) window.closeSpellModal(e);
-  });
-
-  loadAll();
-});
+window.addEventListener("DOMContentLoaded", initApp);

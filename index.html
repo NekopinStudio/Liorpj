@@ -3,685 +3,356 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0c0d0f">
-  <title>Lior Kurogane — D&D 5E</title>
+  <meta name="theme-color" content="#0b0c0e">
+  <title>Lior Kurogane — Ficha D&D 5e</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
-  <div id="app">
-
-    <!-- CABECERA PRINCIPAL -->
-    <header class="topbar">
-      <div class="header-info">
-        <div class="avatar-ring">
-          <img src="logo.png" alt="Lior" class="header-avatar" onerror="this.style.display='none'">
-        </div>
-        <div>
-          <h1 id="headerName">Lior Kurogane</h1>
-          <div class="header-sub">
-            <span class="tag">Aasimar caído</span> · Brujo <span id="headerLevel">6</span> · Saltmarsh
-          </div>
-        </div>
-      </div>
-      <div class="header-right">
-        <span id="saveStatus" class="save-status">Conectado</span>
-        <button id="syncBtn" class="icon-button" title="Sincronizar">↻</button>
-      </div>
-    </header>
-
-    <!-- PESTAÑAS FLOTANTES -->
-    <nav class="sheet-tabs" aria-label="Navegación principal">
-      <button class="sheet-tab-btn active" data-tab="tab-info">Información</button>
-      <button class="sheet-tab-btn" data-tab="tab-traits">Rasgos</button>
-      <button class="sheet-tab-btn" data-tab="tab-equipment">Equipo</button>
-      <button class="sheet-tab-btn" data-tab="tab-spells">Conjuros</button>
-      <button class="sheet-tab-btn" data-tab="tab-companions">Compañeros</button>
-      <button class="sheet-tab-btn" data-tab="tab-diary">Diario</button>
-    </nav>
-
-    <main>
-
-      <!-- =========================================================
-           1. PESTAÑA: INFORMACIÓN & COMBATE TÁCTICO
-      ========================================================= -->
-      <section id="tab-info" class="tab-panel active">
-
-        <!-- GUÍA DE TEMPO & CONCENTRACIÓN ENRIQUECIDA -->
-        <div class="tactical-banner">
-          <div class="panel-title">
-            <span>⚔ GUÍA DE TEMPO & SECUENCIA DE COMBATE</span>
-            <small>Optimización Hexblade 5e</small>
-          </div>
-          <div class="combo-steps">
-            <div class="combo-step">
-              <span class="step-num">1</span>
-              <div>
-                <strong>Apertura / Setup (Acción Adicional):</strong> Activar <em>Maldición del Filo</em> en el objetivo clave (Crítico 19-20, +<span id="guideProfDmg">3</span> daño, cura al morir). Si es a distancia, preparar <em>Arma elemental</em> o <em>Hex</em> (Concentración).
-              </div>
-            </div>
-            <div class="combo-step">
-              <span class="step-num">2</span>
-              <div>
-                <strong>Ofensiva Principal (Acción de Ataque):</strong> Realizar 2 ataques con arma de pacto (Pistola/Mosquete o Arpón/Espada) usando Carisma (+5) al impacto y daño gracias a <em>Guerrero Maléfico</em>.
-              </div>
-            </div>
-            <div class="combo-step">
-              <span class="step-num">3</span>
-              <div>
-                <strong>Impacto / Burst (Eldritch Smite):</strong> Si sale crítico (19-20) o necesitas derribar a un objetivo peligroso, consume slot para +4d8 fuerza (¡u 8d8 en crítico!) y derriba automáticamente.
-              </div>
-            </div>
-            <div class="combo-step">
-              <span class="step-num">4</span>
-              <div>
-                <strong>Reacción Defensiva:</strong> Reserva tu reacción para <em>Escudo (+5 CA)</em> si te atacan, o para contraatacar con <em>Armadura de Agathys</em> (15 frío).
-              </div>
-            </div>
-          </div>
-
-          <div class="concentration-bar" id="concentrationDisplay">
-            <span>🔮 Concentración: <strong>Ninguna</strong></span>
-            <button id="btnBreakConcentration" class="tiny-button" style="display:none; color:var(--danger);">✕ Romper</button>
-          </div>
-
-          <div class="prep-grid" style="margin-top:10px;">
-            <button class="prep-button" id="btnHexbladeCurseToggle" data-combat-toggle="hexblade_curse_active">
-              <span class="prep-check" id="check_hexblade_curse_active">○</span>
-              <span>
-                <b>Maldición del Filo Maléfico (1/Descanso)</b>
-                <small id="curseStatusText">Crítico 19-20 · +<span id="curseDmgBonus">3</span> daño · Sana <span id="curseHealBonus">11</span> PV al morir</small>
-              </span>
-            </button>
-            <button class="prep-button" data-combat-toggle="elemental_weapon_active">
-              <span class="prep-check" id="check_elemental_weapon_active">○</span>
-              <span>
-                <b>Arma elemental (Concentración · Slot Nv 3)</b>
-                <small>+1 a tirada de ataque · +1d4 daño elemental</small>
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <!-- CUADRÍCULA VITAL CON DEATH SAVES HORIZONTALES -->
-        <div class="stat-grid four combat-vitals-grid">
-          
-          <!-- PUNTOS DE GOLPE + PV TEMPORALES -->
-          <div class="stat-card hp-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-              <span>PUNTOS DE GOLPE</span>
-              <span class="temp-hp-badge" id="tempHpBadge" style="display:none;">+0 Temp</span>
-            </div>
-            <strong id="hpValue">48 / 48</strong>
-            <div class="hp-bar"><div id="hpBar" style="width: 100%;"></div></div>
-            <div class="hp-controls-quad">
-              <button class="turn-button hp-step-btn" id="hpMinus10Btn">-10</button>
-              <button class="turn-button hp-step-btn" id="hpMinusBtn">-1</button>
-              <button class="turn-button hp-step-btn" id="hpPlusBtn">+1</button>
-              <button class="turn-button hp-step-btn" id="hpPlus10Btn">+10</button>
-            </div>
-            <div style="margin-top:6px; display:flex; gap:6px; width:100%;">
-              <button class="turn-button" id="btnSetTempHp" style="font-size:10px; padding:4px;">🛡 Asignar PV Temp</button>
-            </div>
-          </div>
-
-          <!-- CLASE DE ARMADURA CON DESGLOSE -->
-          <div class="stat-card ac-card">
-            <span>CLASE DE ARMADURA</span>
-            <strong id="combatAC">12</strong>
-            <small id="acBreakdownText" class="ac-breakdown">Base 10 + DES (+2)</small>
-          </div>
-
-          <!-- INICIATIVA CENTRADA -->
-          <div class="stat-card init-card">
-            <span>INICIATIVA</span>
-            <strong id="combatInit">+2</strong>
-            <small style="color:var(--muted); font-size:10px;">Modificador DES</small>
-          </div>
-
-          <!-- VELOCIDAD -->
-          <div class="stat-card speed-card">
-            <span>VELOCIDAD</span>
-            <strong id="combatSpeed">30 ft</strong>
-          </div>
-
-          <!-- SALVACIONES DE MUERTE HORIZONTALES -->
-          <div class="stat-card death-saves-horizontal-card">
-            <div class="death-saves-horizontal-header">
-              <span>SALVACIONES DE MUERTE (0 PV)</span>
-              <button class="tiny-button" onclick="resetDeathSaves()">Limpiar</button>
-            </div>
-
-            <div class="death-saves-horizontal-body">
-              <div class="horizontal-track">
-                <span class="save-label success-label">ÉXITOS</span>
-                <div class="save-dots">
-                  <span class="dot success-dot" id="succ_1" onclick="toggleDeathDot('success', 1)"></span>
-                  <span class="dot success-dot" id="succ_2" onclick="toggleDeathDot('success', 2)"></span>
-                  <span class="dot success-dot" id="succ_3" onclick="toggleDeathDot('success', 3)"></span>
-                </div>
-              </div>
-
-              <button class="main-action death-roll-btn-compact" onclick="rollDeathSave()">
-                🎲 Tirar (d20)
-              </button>
-
-              <div class="horizontal-track">
-                <span class="save-label failure-label">FALLOS</span>
-                <div class="save-dots">
-                  <span class="dot failure-dot" id="fail_1" onclick="toggleDeathDot('failure', 1)"></span>
-                  <span class="dot failure-dot" id="fail_2" onclick="toggleDeathDot('failure', 2)"></span>
-                  <span class="dot failure-dot" id="fail_3" onclick="toggleDeathDot('failure', 3)"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- MUNICIÓN DE ARMAS DE FUEGO -->
-        <div class="sheet-card ammo-tracker-card">
-          <div class="panel-title">
-            <span>🔫 CARTUCHERA & MUNICIÓN (ARMAS DE FUEGO)</span>
-            <small>Persistente en base de datos</small>
-          </div>
-          <div class="ammo-controls">
-            <span>Balas disponibles: <strong id="ammoCountDisplay">20</strong></span>
-            <div style="display:flex; gap:6px;">
-              <button class="turn-button" id="btnShootAmmo" style="padding:4px 8px;">💥 Disparar (-1)</button>
-              <button class="turn-button" id="btnReloadAmmo" style="padding:4px 8px;">🔄 Recargar (+10)</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- DESCANSOS -->
-        <div class="sheet-card rest-card">
-          <div class="panel-title" style="margin-bottom:8px;">
-            <span>RECUPERACIÓN & DESCANSOS</span>
-            <small>Restaura recursos vitales y mágicos</small>
-          </div>
-          <div class="rest-actions-grid">
-            <button id="btnShortRest" class="rest-button short-rest">
-              <span class="rest-icon">⏳</span>
-              <div>
-                <strong>Descanso Corto (1h)</strong>
-                <small>Restaura espacios de pacto y Maldición del Filo</small>
-              </div>
-            </button>
-            <button id="btnLongRest" class="rest-button long-rest">
-              <span class="rest-icon">⛺</span>
-              <div>
-                <strong>Descanso Largo (8h)</strong>
-                <small>Restaura 100% PV (48/48), slots y rasgos diarios</small>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- TARJETA DE FIDELIDAD DE MUERTES -->
-        <div class="death-card-loyalty">
-          <div class="loyalty-header">
-            <div>
-              <h3>☠ TARJETA DE LEALTAD MORTAL</h3>
-              <small>Colecciona 10 muertes para la fiesta de cumpleaños Grunt</small>
-            </div>
-            <div>
-              <span id="deathLoyaltyCount" style="font-size:16px; font-weight:900; color:#8F1825;">4</span> / 10
-            </div>
-          </div>
-          <div class="loyalty-slots-grid" id="loyaltySlotsContainer"></div>
-        </div>
-
-        <!-- PROGRESIÓN -->
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>PROGRESIÓN DEL PERSONAJE</span>
-            <small>Modifica el nivel para recalcular derivadas</small>
-          </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
-            <div>
-              <strong>Nivel de Brujo: <span id="levelValueDisplay">6</span></strong>
-              <div style="font-size:11px; color:var(--muted)">Bono de competencia: +<span id="profDisplay">3</span></div>
-            </div>
-            <div class="stepper-row">
-              <button class="stepper-btn" onclick="stepLevel(-1)">−</button>
-              <button class="stepper-btn" onclick="stepLevel(+1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARACTERÍSTICAS EN FILA COMPLETA -->
-        <div class="sheet-card">
-          <div class="panel-title"><span>CARACTERÍSTICAS PRINCIPALES</span></div>
-          <div class="ability-grid six-cols">
-            <div class="ability-control-card">
-              <span>FUE</span>
-              <input id="score_strength" type="number" value="13" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('strength', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('strength', +1)">+</button>
-              </div>
-              <b id="mod_strength">+1</b>
-            </div>
-            <div class="ability-control-card">
-              <span>DES</span>
-              <input id="score_dexterity" type="number" value="15" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('dexterity', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('dexterity', +1)">+</button>
-              </div>
-              <b id="mod_dexterity">+2</b>
-            </div>
-            <div class="ability-control-card">
-              <span>CON</span>
-              <input id="score_constitution" type="number" value="15" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('constitution', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('constitution', +1)">+</button>
-              </div>
-              <b id="mod_constitution">+2</b>
-            </div>
-            <div class="ability-control-card">
-              <span>INT</span>
-              <input id="score_intelligence" type="number" value="13" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('intelligence', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('intelligence', +1)">+</button>
-              </div>
-              <b id="mod_intelligence">+1</b>
-            </div>
-            <div class="ability-control-card">
-              <span>SAB</span>
-              <input id="score_wisdom" type="number" value="13" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('wisdom', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('wisdom', +1)">+</button>
-              </div>
-              <b id="mod_wisdom">+1</b>
-            </div>
-            <div class="ability-control-card">
-              <span>CAR</span>
-              <input id="score_charisma" type="number" value="20" readonly>
-              <div class="stepper-row">
-                <button class="stepper-btn" onclick="stepStat('charisma', -1)">−</button>
-                <button class="stepper-btn" onclick="stepStat('charisma', +1)">+</button>
-              </div>
-              <b id="mod_charisma">+5</b>
-            </div>
-          </div>
-        </div>
-
-        <!-- TABLA DE ATAQUES REACTIVA (SINCRONIZADA CON EQUIPO) -->
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:8px;">
-            <span>ATAQUES PRINCIPALES (ARMAS ACTIVAS / EQUIPADAS)</span>
-            <small>Toca cualquier fila para tirar dado</small>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Bonif</th>
-                  <th>Daño</th>
-                  <th>Propiedad</th>
-                </tr>
-              </thead>
-              <tbody id="attacksTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- HABILIDADES -->
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:8px;">
-            <span>HABILIDADES (18 OFICIALES)</span>
-            <small>Toca para tirar dado en ventana flotante</small>
-          </div>
-          <div class="skill-list" id="fullSkillsList"></div>
-        </div>
-
-      </section>
-
-      <!-- =========================================================
-           2. RASGOS PRÁCTICOS & SOCIALES (CON LADY D CONFIGURABLE)
-      ========================================================= -->
-      <section id="tab-traits" class="tab-panel">
-
-        <!-- CONFIGURADOR DE LAS 4 MODALIDADES DE LADY D -->
-        <div class="sheet-card" style="border-left: 4px solid var(--crimson);">
-          <div class="panel-title">
-            <span>◈ MARCA DE LADY D. (CONDICIÓN DIARIA)</span>
-            <small>Regla casera de la Dama del Dolor</small>
-          </div>
-          <p style="font-size:12px; color:var(--muted); margin:4px 0 8px;">
-            Selecciona la modalidad de canalización de <em>Infligir heridas</em> según la tirada del día:
-          </p>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <select id="ladyDModeSelect" onchange="changeLadyDMode(this.value)" style="flex:1;">
-              <option value="cantrip_free">1. Truco Puro (Ilimitado · Coste 0 · Sin daño personal)</option>
-              <option value="cantrip_damage">2. Pacto Doloroso (Ilimitado · Coste 0 · Con contra tirada de daño)</option>
-              <option value="normal_slot">3. Normal (Consume espacio de pacto · Sin daño personal)</option>
-              <option value="slot_plus_damage">4. Sobrecarga (Consume espacio de pacto + Daño personal)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>🎭 SITUACIONES SOCIALES & TRASFONDO</span>
-            <small>Utilidades en puertos, tabernas y viajes</small>
-          </div>
-          <div class="item-list" style="margin-top:8px;">
-            <div class="item-row trait-active-card">
-              <div>
-                <strong>Pasaje Marítimo (Marinero)</strong>
-                <span>Puedes asegurar viaje gratis en barco para ti y tu grupo sirviendo a la tripulación.</span>
-              </div>
-              <button class="secondary-action" onclick="useTraitAction('passage')">📜 Negociar Pasaje</button>
-            </div>
-
-            <div class="item-row trait-active-card">
-              <div>
-                <strong>Pelea de Taberna (Social / Rumores)</strong>
-                <span>Una pelea es tu forma de conocer gente y ganarte el respeto de contrabandistas.</span>
-              </div>
-              <button class="secondary-action" onclick="rollSkillCheck('Intimidar', calcMod(state.character.charisma))">⚡ Intimidar</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>✨ RASGOS ACTIVOS DE RAZA (AASIMAR CAÍDO)</span>
-            <small>Poderes celestiales oscurecidos</small>
-          </div>
-          <div class="item-list" style="margin-top:8px;">
-            <div class="item-row trait-active-card">
-              <div>
-                <strong>Mortaja Necrótica (1/Descanso Largo)</strong>
-                <span>Alas esqueléticas y ojos de sombra. Asusta en 10 ft (CD <b id="necroticDcDisplay">16</b>) y suma +<b id="necroticDmgDisplay">6</b> daño necrótico.</span>
-              </div>
-              <button id="btnNecroticShroud" class="secondary-action" onclick="useNecroticShroud()">💀 Desatar Alas</button>
-            </div>
-
-            <div class="item-row trait-active-card">
-              <div>
-                <strong>Manos Curativas (1/Descanso Largo)</strong>
-                <span>Toca para sanar tantos PV como tu nivel (<b id="healingHandsValue">6</b> PV).</span>
-              </div>
-              <button id="btnHealingHands" class="secondary-action" onclick="useHealingHands()">💚 Curar 6 PV</button>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Portador de Luz (Truco)</strong>
-                <span>Haces que un objeto emita luz mágica brillante en 20 pies y tenue en 20 adicionales.</span>
-              </div>
-              <span class="tag">UTILIDAD</span>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Resistencia Celestial & Visión en la Oscuridad</strong>
-                <span>Resistencia a daño Necrótico y Radiante. Visión clara hasta 60 pies en penumbra o tinieblas.</span>
-              </div>
-              <span class="tag">PASIVO</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>🗡 FILO MALÉFICO & PACTO DEL FILO</span>
-            <small>Rasgos marciales y pacto con la sombra</small>
-          </div>
-          <div class="item-list" style="margin-top:8px;">
-            <div class="item-row">
-              <div>
-                <strong>Guerrero Maléfico (Hex Warrior)</strong>
-                <span>Tus ataques con armas del pacto usan Carisma (+5) en vez de Fuerza o Destreza.</span>
-              </div>
-              <span class="tag">CARISMA</span>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Pacto del Filo & Arma Mejorada</strong>
-                <span>Armas mágicas con bono +1 que funcionan como foco arcano.</span>
-              </div>
-              <span class="tag">+1 BONO</span>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Filo Sediento (Thirsting Blade)</strong>
-                <span>Atacas dos veces por turno al realizar la acción de Ataque con arma de pacto.</span>
-              </div>
-              <span class="tag">2 ATAQUES</span>
-            </div>
-
-            <div class="item-row">
-              <div>
-                <strong>Castigo Arcano (Eldritch Smite)</strong>
-                <span>Al impactar, consume slot para +4d8 fuerza y derriba al enemigo sin tirada de salvación.</span>
-              </div>
-              <span class="tag">4d8 FUERZA</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>📜 DOTES & REGLAS ESPECIALES</span>
-            <small>Marcas y dones adquiridos</small>
-          </div>
-          <div class="item-list" style="margin-top:8px;">
-            <div class="item-row">
-              <div>
-                <strong>Toque Feérico (Fey Touched)</strong>
-                <span>Aprendes Paso Brumoso y Susurros Disonantes.</span>
-              </div>
-              <span class="tag">DOTE</span>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
-      <!-- =========================================================
-           3. EQUIPO (CON BORRADO Y SINCRONIZACIÓN DE ARMAS)
-      ========================================================= -->
-      <section id="tab-equipment" class="tab-panel">
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:10px;">
-            <span>EQUIPO & INVENTARIO INTERACTIVO</span>
-            <small>Toca el estado para alternar (afecta la CA y los ataques)</small>
-          </div>
-
-          <div class="currency-grid" style="margin-bottom:14px;">
-            <label>Oro (PO)<input id="goldInput" type="number" min="0" value="599"></label>
-            <label>Plata (PP)<input id="silverInput" type="number" min="0" value="99"></label>
-            <label>Cobre (PC)<input id="copperInput" type="number" min="0" value="15"></label>
-          </div>
-          <button id="saveCurrencyBtn" class="secondary-action full" style="margin-bottom:14px;">Guardar Monedas</button>
-
-          <div style="display:flex; gap:6px; margin-bottom:12px;">
-            <input id="newItemName" placeholder="Nombre del objeto..." style="flex:2;">
-            <input id="newItemQty" type="number" min="1" value="1" style="flex:1;" placeholder="Cant">
-            <button id="addItemBtn" class="secondary-action">+ Añadir</button>
-          </div>
-
-          <div id="equipmentListCategorized" class="item-list"></div>
-        </div>
-      </section>
-
-      <!-- =========================================================
-           4. CONJUROS
-      ========================================================= -->
-      <section id="tab-spells" class="tab-panel">
-        <div class="sheet-card">
-          <div class="panel-title">
-            <span>MAGIA DEL PACTO</span>
-            <small>Espacios de Pacto Nivel 3: <b id="magicSlotDisplay">2 / 2</b></small>
-          </div>
-          <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-top:8px;">
-            <div class="stat-card"><span>CARACTERÍSTICA</span><strong>Carisma</strong></div>
-            <div class="stat-card"><span>CD SALVACIÓN</span><strong id="magicDCDisplay">16</strong></div>
-            <div class="stat-card"><span>BONO ATAQUE</span><strong id="magicAtkDisplay">+8</strong></div>
-          </div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:8px;">
-            <span>LISTADO DE CONJUROS Y TRUCOS</span>
-            <small>Toca para ver detalles o lanzar</small>
-          </div>
-          <div id="spellsFullList" class="item-list"></div>
-        </div>
-
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:8px;"><span>INVOCACIONES SOBRENATURALES</span></div>
-          <div id="invocationsFullList" class="item-list"></div>
-        </div>
-      </section>
-
-      <!-- =========================================================
-           5. COMPAÑEROS (ESPECTRO CON 3 ESTADOS)
-      ========================================================= -->
-      <section id="tab-companions" class="tab-panel">
-        <!-- Pourcoon -->
-        <div class="sheet-card">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <strong style="font-size:16px;">Pourcoon</strong>
-              <p style="margin:2px 0; font-size:11px; color:var(--muted);">Roedor gigante nocturno · Bestia Pequeña (Neutral)</p>
-            </div>
-            <span class="tag" id="pourcoonStatusTag">ACTIVO</span>
-          </div>
-
-          <div class="companion-grid" style="margin:10px 0;">
-            <div><span>CA</span><b>11</b></div>
-            <div><span>PV</span><b id="pourcoonHpDisplay">9 / 9</b></div>
-            <div><span>Velocidad</span><b>30 / 25 nado</b></div>
-            <div><span>Visión</span><b>60 ft oscura</b></div>
-          </div>
-
-          <div style="display:flex; gap:6px;">
-            <button class="turn-button" id="btnPourcoonHpMinus">-1 PV</button>
-            <button class="turn-button" id="btnPourcoonHpPlus">+1 PV</button>
-            <button class="turn-button" id="btnPourcoonReset" style="border-color:var(--bronze);">Restablecer (9)</button>
-          </div>
-
-          <p class="small-note" style="margin-top:8px;">⚡ <b>Piel de púas:</b> Inflige 1d4 penetrante a quien lo agarre.</p>
-          <p class="small-note">💣 <b>Regla casera:</b> Reacción «se muere solito» activada con crítico de 12.</p>
-        </div>
-
-        <!-- Espectro Maldito: 3 ESTADOS (EN REPOSO / CONVOCADO / CONSUMIDO) -->
-        <div class="sheet-card">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <strong style="font-size:16px; color:#c23644;">Espectro del Filo (Accursed Specter)</strong>
-              <p style="margin:2px 0; font-size:11px; color:var(--muted);">Rasgo de Subclase Nivel 6 · No-muerto Mediano</p>
-            </div>
-            <button id="btnSpecterState" class="secondary-action" onclick="cycleSpecterState()">
-              💤 En reposo
-            </button>
-          </div>
-
-          <div class="companion-grid" style="margin:10px 0;">
-            <div><span>CA</span><b>12</b></div>
-            <div><span>PV Temp</span><b id="specterHpDisplay">3 PV</b></div>
-            <div><span>Ataque</span><b id="specterAtkBonus">+5</b></div>
-            <div><span>Vuelo</span><b>50 ft</b></div>
-          </div>
-
-          <p class="small-note">💀 <b>Toque Drenador:</b> Ataque con modificador de Carisma (+5). 3d6 daño necrótico.</p>
-          <p class="small-note">⏳ <b>Ciclo:</b> En reposo (disponible) ➔ Convocado (en batalla) ➔ Consumido (muerto hasta descanso largo).</p>
-        </div>
-      </section>
-
-      <!-- =========================================================
-           6. DIARIO / CAMPAÑA (GUARDADO GARANTIZADO)
-      ========================================================= -->
-      <section id="tab-diary" class="tab-panel">
-        <div class="sheet-card">
-          <div class="panel-title" style="margin-bottom:8px;">
-            <span>BITÁCORA DE SALTMARSH</span>
-            <small>Nueva Entrada Sincronizada</small>
-          </div>
-          <div style="display:grid; gap:8px;">
-            <select id="newNoteType">
-              <option value="session">Bitácora de Sesión</option>
-              <option value="npc">Personaje / Facción</option>
-              <option value="quest">Misión / Pista</option>
-            </select>
-            <input id="newNoteTitle" placeholder="Título de la entrada...">
-            <textarea id="newNoteContent" placeholder="Notas, acuerdos o descubrimientos..."></textarea>
-            <button id="addNoteBtn" class="main-action" style="padding:10px;">✦ Guardar en Bitácora</button>
-          </div>
-        </div>
-
-        <div class="panel-title" style="margin:14px 2px 8px;">
-          <span>ENTRADAS GUARDADAS</span>
-          <div style="display:flex; gap:4px;">
-            <button class="tiny-button note-filter-btn active" data-filter="all">Todas</button>
-            <button class="tiny-button note-filter-btn" data-filter="session">Sesiones</button>
-            <button class="tiny-button note-filter-btn" data-filter="npc">PNJs</button>
-            <button class="tiny-button note-filter-btn" data-filter="quest">Misiones</button>
-          </div>
-        </div>
-
-        <div id="notesContainer" class="item-list"></div>
-      </section>
-
-    </main>
-
-    <!-- MODAL FLOTANTE DE RESULTADOS DE DADOS -->
-    <div id="rollModal" class="modal-backdrop" onclick="closeRollModal(event)">
-      <div class="modal-card roll-modal-card" onclick="event.stopPropagation()">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-          <span id="rollModalTitle" class="eyebrow">TIRADA DE DADOS</span>
-          <button class="tiny-button" style="font-size:24px; line-height:1; padding:4px;" onclick="closeRollModal(event)">✕</button>
-        </div>
-        <div id="rollModalTotal" class="roll-total">0</div>
-        <p id="rollModalDetail" style="color:var(--muted); font-size:13px; margin:8px 0;"></p>
-        <button class="turn-button" style="margin-top:12px;" onclick="closeRollModal(event)">Aceptar</button>
+<div id="app">
+  <header class="topbar">
+    <div class="identity-head">
+      <div class="avatar"><img src="logo.png" alt="Lior Kurogane" onerror="this.style.display='none'"></div>
+      <div>
+        <h1 id="headName">Lior Kurogane</h1>
+        <p><span id="headRace">Aasimar caído</span> · Brujo <b id="headLevel">6</b> · Saltmarsh</p>
       </div>
     </div>
+    <div class="sync-box">
+      <span id="saveStatus">Conectando...</span>
+      <button id="syncBtn" class="icon-btn" title="Sincronizar">↻</button>
+    </div>
+  </header>
 
-    <!-- MODAL FLOTANTE DE CONJUROS -->
-    <div id="spellModal" class="modal-backdrop" onclick="closeSpellModal(event)">
-      <div class="modal-card" id="spellModalCard" onclick="event.stopPropagation()">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+  <nav class="tabs" aria-label="Secciones de la ficha">
+    <button class="tab active" data-tab="combat">⚔ Combate</button>
+    <button class="tab" data-tab="sheet">📜 Ficha</button>
+    <button class="tab" data-tab="traits">◈ Rasgos</button>
+    <button class="tab" data-tab="equipment">🎒 Equipo</button>
+    <button class="tab" data-tab="spells">✦ Conjuros</button>
+    <button class="tab" data-tab="companions">♣ Compañeros</button>
+    <button class="tab" data-tab="diary">📓 Diario</button>
+  </nav>
+
+  <main>
+    <!-- =========================================================
+         1. ⚔ COMBATE
+    ========================================================= -->
+    <section id="combat" class="panel active">
+      <div class="hero-card">
+        <div class="section-title"><span>⚔ TEMPO TÁCTICO</span><small>Guía rápida de mesa</small></div>
+        <div class="steps">
+          <div><b>1</b><span><strong>Preparar:</strong> Maldición del Filo o concentración si la situación lo exige.</span></div>
+          <div><b>2</b><span><strong>Atacar:</strong> Filo Sediento permite 2 ataques con arma de pacto.</span></div>
+          <div><b>3</b><span><strong>Impacto:</strong> Eldritch Smite consume 1 espacio para +4d8 fuerza y derribo.</span></div>
+          <div><b>4</b><span><strong>Reacción:</strong> Escudo puede aumentar la CA en +5 durante el asalto.</span></div>
+        </div>
+        <div class="concentration">
+          <span>🔮 Concentración: <b id="concentrationText">Ninguna</b></span>
+          <button id="breakConcentration" class="small-btn hidden">Romper</button>
+        </div>
+        <div class="toggle-grid">
+          <button id="curseToggle" class="toggle-card">
+            <span>○</span>
+            <div><strong>Maldición del Filo</strong><small id="curseInfo">1/Descanso · crítico 19–20 · +3 daño · cura 11 PV</small></div>
+          </button>
+          <button id="elementalToggle" class="toggle-card">
+            <span>○</span>
+            <div><strong>Arma elemental</strong><small>Concentración · +1 ataque · +1d4 daño</small></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- CUADRÍCULA VITAL: SALVACIONES AL LADO DE VELOCIDAD -->
+      <div class="grid four combat-vitals-grid">
+        <article class="card hp-card">
+          <div class="card-label">PUNTOS DE GOLPE <span id="tempBadge" class="badge green hidden">+0 temp</span></div>
+          <strong id="hpText" class="big">48 / 48</strong>
+          <div class="bar"><i id="hpBar"></i></div>
+          <div class="quad">
+            <button data-hp="-10">−10</button><button data-hp="-1">−1</button><button data-hp="1">+1</button><button data-hp="10">+10</button>
+          </div>
+          <button id="tempHpBtn" class="secondary full" style="margin-top:6px;">🛡 Asignar PV temporales</button>
+        </article>
+        <article class="card center"><span class="card-label">CA</span><strong id="acText" class="big">12</strong><small id="acDetail">10 + DES 2</small></article>
+        <article class="card center"><span class="card-label">INICIATIVA</span><strong id="initiativeText" class="big">+2</strong><small>Mod. Destreza</small></article>
+
+        <!-- VELOCIDAD (1 col) + SALVACIONES DE MUERTE (3 cols) -->
+        <article class="card center speed-card"><span class="card-label">VELOCIDAD</span><strong class="big">30</strong><small>pies</small></article>
+        
+        <article class="card death-saves-inline-card">
+          <div class="death-saves-inline-header">
+            <span>☠ SALVACIONES DE MUERTE (0 PV)</span>
+            <button id="clearSaves" class="small-btn">Limpiar</button>
+          </div>
+          <div class="death-saves-inline-body">
+            <div class="death-track">
+              <span class="save-label ok">ÉXITOS</span>
+              <div id="successDots" class="dots"></div>
+            </div>
+            <button id="rollDeath" class="primary compact-roll-btn">🎲 Tirar d20</button>
+            <div class="death-track">
+              <span class="save-label error">FALLOS</span>
+              <div id="failureDots" class="dots"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- TARJETA DE LEALTAD MORTAL (UBICADA AQUÍ: DEBAJO DE VELOCIDAD/SALVACIONES) -->
+      <article class="loyalty">
+        <div class="loyalty-top">
           <div>
-            <h3 id="modalSpellName" style="margin:0; font-size:18px;">Nombre Conjuro</h3>
-            <span id="modalSpellLevel" class="tag" style="margin-top:4px;">Nivel</span>
+            <b>☠ TARJETA DE LEALTAD MORTAL</b>
+            <small>10 sellos para la fiesta de cumpleaños Grunt</small>
           </div>
-          <button class="tiny-button" style="font-size:24px; line-height:1; padding:4px;" onclick="closeSpellModal(event)">✕</button>
+          <div class="loyalty-badge"><span id="deathCount">4</span> / 10</div>
         </div>
+        <div id="deathStamps" class="stamps"></div>
+      </article>
 
-        <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); gap:6px; margin-bottom:12px;">
-          <div class="stat-card" style="padding:6px;"><span>TIEMPO</span><strong id="modalSpellTime">1 Acción</strong></div>
-          <div class="stat-card" style="padding:6px;"><span>ALCANCE</span><strong id="modalSpellRange">120 ft</strong></div>
-          <div class="stat-card" style="padding:6px;"><span>DURACIÓN</span><strong id="modalSpellDuration">Instantáneo</strong></div>
-        </div>
+      <!-- CARTUCHERA Y DESCANSOS OPERATIVOS -->
+      <div class="grid two">
+        <article class="card ammo-card-slim">
+          <div class="section-title" style="margin-bottom:4px;">
+            <span>🔫 CARTUCHERA</span>
+            <small>Persistente en sesión</small>
+          </div>
+          <div class="ammo-row">
+            <div class="ammo-display"><strong id="ammoText">20</strong> <span>balas</span></div>
+            <div class="ammo-actions">
+              <button id="shootBtn" class="small-btn">−1</button>
+              <button id="ammoMinus5" class="small-btn">−5</button>
+              <button id="reloadBtn" class="small-btn">+10</button>
+              <button id="ammoSet" class="small-btn">Fijar</button>
+            </div>
+          </div>
+        </article>
 
-        <div class="info-card" style="margin-bottom:14px; background:#111214;">
-          <span class="eyebrow" style="font-size:9px;">EFECTO & DAÑO</span>
-          <p id="modalSpellEffect" style="margin:6px 0 0; font-size:12px; line-height:1.5;"></p>
-        </div>
-
-        <div style="display:flex; gap:8px;">
-          <button id="modalCastSpellBtn" class="main-action" style="flex:2; padding:10px;">Lanzar Conjuro</button>
-          <button class="turn-button" style="flex:1; margin:0; padding:10px;" onclick="closeSpellModal(event)">Cerrar</button>
-        </div>
+        <article class="card" style="padding:10px;">
+          <div class="section-title" style="margin-bottom:6px;"><span>♻ DESCANSOS OPERATIVOS</span></div>
+          <div class="grid two" style="gap:6px;">
+            <button id="shortRest" class="rest short" style="min-height:54px; padding:6px 9px;">
+              <b>⏳ Descanso corto</b><small>Recupera pacto y maldición.</small>
+            </button>
+            <button id="longRest" class="rest long" style="min-height:54px; padding:6px 9px;">
+              <b>⛺ Descanso largo</b><small>100% PV, slots y rasgos diarios.</small>
+            </button>
+          </div>
+        </article>
       </div>
-    </div>
 
+      <article class="card">
+        <div class="section-title"><span>⚔ ATAQUES ACTIVOS</span><small>Sincronizado con armas equipadas en inventario</small></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Arma / acción</th><th>Ataque</th><th>Daño</th><th>Propiedades</th></tr></thead>
+            <tbody id="attacksBody"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>🎯 HABILIDADES RÁPIDAS</span><small>Toca para tirar d20</small></div>
+        <div id="skillsGrid" class="skills-grid"></div>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         2. 📜 FICHA
+    ========================================================= -->
+    <section id="sheet" class="panel">
+      <article class="card">
+        <div class="section-title"><span>📜 IDENTIDAD</span><small>Datos del personaje</small></div>
+        <div class="identity-grid">
+          <div><label>Nombre</label><strong>Lior Kurogane</strong></div><div><label>Raza</label><strong>Aasimar caído</strong></div>
+          <div><label>Clase</label><strong>Brujo — El Filo Maléfico</strong></div><div><label>Nivel</label><strong id="sheetLevel">6</strong></div>
+          <div><label>Pacto</label><strong>Pacto del Filo</strong></div><div><label>Trasfondo</label><strong>Marinero</strong></div>
+          <div><label>Alineamiento</label><strong>Neutral Maligno</strong></div><div><label>Edad</label><strong>35 años</strong></div>
+          <div><label>Idiomas</label><strong>Común · Celestial · Infernal</strong></div><div><label>Campaña</label><strong>Saltmarsh</strong></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>📊 ATRIBUTOS</span><small>Puntuaciones base y modificadores</small></div>
+        <div class="ability-grid clean-ability-grid" id="abilityGrid"></div>
+        <div class="derived-grid">
+          <div><span>Bono competencia</span><b id="profText">+3</b></div><div><span>CD conjuros</span><b id="spellDcText">16</b></div>
+          <div><span>Ataque mágico</span><b id="spellAttackText">+8</b></div><div><span>Percepción pasiva</span><b id="passivePerception">14</b></div>
+          <div><span>Investigación pasiva</span><b id="passiveInvestigation">11</b></div><div><span>PV máximos</span><b>48</b></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>🎲 SALVACIONES</span><small>Toca para tirar</small></div>
+        <div id="savingGrid" class="mini-grid"></div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>🧾 COMPETENCIAS Y PERICIAS</span><small>Editables</small></div>
+        <div id="sheetSkills" class="skill-editor"></div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>📖 HISTORIA</span></div>
+        <p class="lore">Secuestrada en su juventud y reconstruida tras un pacto forzado con la Reina Cuervo, Lior sirvió como arponera en el mar. Tras un conflicto divino donde la Dama del Dolor desplazó a su antigua patrona, su contrato pasó a estar bajo el influjo de la Dama a través de su pourcoon. Ha muerto en múltiples ocasiones y asume su destino con pragmatismo cínico.</p>
+        <div class="lore-grid">
+          <div><b>Personalidad</b><p>Orgullo, pragmatismo y una relación poco saludable con la muerte.</p></div>
+          <div><b>Ideal</b><p>Obtener su propio barco y no volver a pertenecer a nadie.</p></div>
+          <div><b>Vínculo</b><p>La Dama del Dolor y su contrato místico.</p></div>
+          <div><b>Defecto</b><p>El orgullo suele hablar antes que la prudencia.</p></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         3. ◈ RASGOS
+    ========================================================= -->
+    <section id="traits" class="panel">
+      <article class="card lady">
+        <div class="section-title"><span>◈ MARCA DE LADY D.</span><small>Condición diaria configurable</small></div>
+        <p>La modalidad elegida controla cómo funciona <em>Infligir heridas</em> en el Grimorio y en combate:</p>
+        <select id="ladyMode">
+          <option value="cantrip_free">1. Truco Puro — coste 0 · sin autodaño</option>
+          <option value="cantrip_damage">2. Pacto Doloroso — coste 0 · contra tirada de autodaño (1d4)</option>
+          <option value="normal_slot">3. Normal — consume 1 espacio de pacto · sin autodaño</option>
+          <option value="slot_plus_damage">4. Sobrecarga — consume 1 espacio + autodaño (1d4)</option>
+        </select>
+        <div id="ladyModeDescription" class="callout"></div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>◈ RASGOS RACIALES (AASIMAR CAÍDO)</span></div>
+        <div id="racialTraits" class="trait-list"></div>
+      </article>
+      <article class="card">
+        <div class="section-title"><span>◈ RASGOS DE CLASE (BRUJO / FILO MALÉFICO)</span></div>
+        <div id="classTraits" class="trait-list"></div>
+      </article>
+      <article class="card">
+        <div class="section-title"><span>✦ INVOCACIONES SOBRENATURALES</span></div>
+        <div id="invocations" class="trait-list"></div>
+      </article>
+      <article class="card">
+        <div class="section-title"><span>🎭 UTILIDADES SOCIALES</span></div>
+        <div class="grid two">
+          <button class="social" data-social="pasaje">📜 Negociar pasaje marítimo</button>
+          <button class="social" data-social="taberna">🍺 Resolver pelea de taberna</button>
+        </div>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         4. 🎒 EQUIPO (CON MONEDERO INTEGRADO)
+    ========================================================= -->
+    <section id="equipment" class="panel">
+      <article class="card">
+        <div class="section-title"><span>🪙 MONEDERO</span><small>Ajuste de fondos</small></div>
+        <div class="coin-grid">
+          <div><label>PO · Oro</label><div class="step"><button data-coin="gp" data-delta="-1">−</button><strong id="gp">599</strong><button data-coin="gp" data-delta="1">+</button></div></div>
+          <div><label>PP · Plata</label><div class="step"><button data-coin="sp" data-delta="-1">−</button><strong id="sp">99</strong><button data-coin="sp" data-delta="1">+</button></div></div>
+          <div><label>PC · Cobre</label><div class="step"><button data-coin="cp" data-delta="-1">−</button><strong id="cp">15</strong><button data-coin="cp" data-delta="1">+</button></div></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>🎒 INVENTARIO DINÁMICO</span><button id="addEquipment" class="primary">+ Añadir</button></div>
+        <p class="small-note" style="margin-bottom:10px;">Las armas en estado <strong>Equipado</strong> pasan automáticamente a la lista de ataques en Combate.</p>
+        <div id="equipmentList" class="equipment-list"></div>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         5. ✦ CONJUROS
+    ========================================================= -->
+    <section id="spells" class="panel">
+      <article class="card spell-slots">
+        <div>
+          <span class="card-label">ESPACIOS DE PACTO · NIVEL 3</span>
+          <strong id="slotText">2 / 2</strong>
+        </div>
+        <small style="color:var(--muted); font-size:11px;">Se descuentan al lanzar y se restauran con descansos.</small>
+      </article>
+
+      <article class="card">
+        <div class="section-title"><span>✦ GRIMORIO</span><small>Toca un conjuro para inspeccionarlo o lanzarlo</small></div>
+        <div id="spellList" class="spell-list"></div>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         6. ♣ COMPAÑEROS
+    ========================================================= -->
+    <section id="companions" class="panel">
+      <article class="card companion">
+        <div class="section-title"><span>🐀 POURCOON</span><small>Bestia pequeña · Neutral</small></div>
+        <div class="comp-head">
+          <div><strong>CA 11</strong><small>30 ft · nado 25 ft · visión 60 ft</small></div>
+          <div class="comp-hp"><span id="pourHp">9/9</span><div class="bar"><i id="pourBar"></i></div></div>
+        </div>
+        <p><b>Piel de púas:</b> 1d4 de daño a quien lo agarre.</p>
+        <p><b>«Se muere solito»:</b> regla casera; un crítico de 12 determina su muerte.</p>
+        <div class="quad">
+          <button data-pour="-1">−1 PV</button><button data-pour="1">+1 PV</button><button id="pourReset">9/9</button><button id="pourDie">💀 Reacción 12</button>
+        </div>
+      </article>
+      <article class="card companion">
+        <div class="section-title"><span>👻 ESPECTRO DEL FILO</span><small>Accursed Specter · Nivel 6</small></div>
+        <div id="specterState" class="specter-state"></div>
+        <div class="comp-stats">
+          <div><span>CA</span><b>12</b></div>
+          <div><span>PV temporales</span><b id="specterHp">3</b></div>
+          <div><span>Ataque</span><b id="specterAttack">+5</b></div>
+          <div><span>Daño</span><b>3d6 necrótico</b></div>
+        </div>
+        <button id="specterCycle" class="primary full">Cambiar estado (Ciclo estricto)</button>
+        <p class="small-note" style="margin-top:6px;">Ciclo: En reposo ➔ Convocado ➔ Consumido (Requiere Descanso Largo para reactivarse).</p>
+      </article>
+    </section>
+
+    <!-- =========================================================
+         7. 📓 DIARIO
+    ========================================================= -->
+    <section id="diary" class="panel">
+      <article class="card">
+        <div class="section-title"><span>📓 NUEVA ENTRADA</span><small>Supabase</small></div>
+        <div class="form-grid">
+          <input id="noteTitle" placeholder="Título de la nota">
+          <select id="noteType">
+            <option value="session">Sesión</option>
+            <option value="npc">PNJ</option>
+            <option value="quest">Misión</option>
+            <option value="diary">Diario</option>
+          </select>
+        </div>
+        <textarea id="noteContent" placeholder="Notas, acuerdos o descubrimientos..."></textarea>
+        <button id="saveNote" class="primary full">Guardar entrada</button>
+      </article>
+      <article class="card">
+        <div class="section-title">
+          <span>📚 BITÁCORA DE SALTMARSH</span>
+          <select id="noteFilter">
+            <option value="all">Todo</option>
+            <option value="session">Sesiones</option>
+            <option value="npc">PNJs</option>
+            <option value="quest">Misiones</option>
+            <option value="diary">Diario</option>
+          </select>
+        </div>
+        <div id="notesList" class="notes-list"></div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL FLOTANTE CENTRAL -->
+<div id="modal" class="modal hidden">
+  <div class="modal-card" id="modalCard">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div id="modalContent"></div>
   </div>
-
-  <script src="app.js"></script>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
