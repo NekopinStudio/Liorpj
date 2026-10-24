@@ -64,16 +64,18 @@
           </div>
         </div>
 
-        <!-- Controles Rápidos de Vida, CA, Espacios y Descansos -->
+        <!-- Controles Rápidos de Vida, CA con Desglose Exacto, Espacios y Descansos -->
         <div class="flex flex-wrap items-center gap-3">
           <!-- Puntos de Golpe -->
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center gap-3">
             <div>
               <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Puntos de Golpe</div>
               <div class="flex items-center gap-1.5 mt-0.5">
+                <button onclick="quickAdjustHP(-1)" class="w-5 h-5 rounded bg-slate-800 hover:bg-red-900 text-white text-xs font-bold">-</button>
                 <input id="hpCurrent" type="number" onchange="saveCharacterCore()" class="w-14 bg-slate-950 text-emerald-400 font-bold text-center rounded border border-slate-700 py-0.5 text-sm" value="48" />
                 <span class="text-slate-500">/</span>
                 <input id="hpMax" type="number" onchange="saveCharacterCore()" class="w-14 bg-slate-950 text-slate-300 font-bold text-center rounded border border-slate-700 py-0.5 text-sm" value="48" />
+                <button onclick="quickAdjustHP(1)" class="w-5 h-5 rounded bg-slate-800 hover:bg-emerald-900 text-white text-xs font-bold">+</button>
               </div>
             </div>
             <div class="border-l border-slate-800 pl-3">
@@ -82,10 +84,15 @@
             </div>
           </div>
 
-          <!-- CA Calculada en Tiempo Real -->
-          <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 text-center min-w-[72px]">
-            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">CA Total</div>
-            <div id="acDisplay" class="text-xl font-black text-white">18</div>
+          <!-- CA Calculada en Tiempo Real + Desglose Exacto de de dónde sale -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-1.5 text-center">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Clase de Armadura (CA)</div>
+            <div class="flex items-center justify-center gap-2">
+              <span id="acDisplay" class="text-xl font-black text-white">18</span>
+              <span id="acFormulaBadge" class="text-[10px] text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 font-medium">
+                Coraza (14) + DES (+2) + Targuilla (+2)
+              </span>
+            </div>
           </div>
 
           <!-- Espacios de Magia del Pacto -->
@@ -108,7 +115,7 @@
         </div>
       </div>
 
-      <!-- Barra de Pestañas -->
+      <!-- Barra de Pestañas y Estado de Conexión -->
       <nav class="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80 overflow-x-auto gap-2">
         <div class="flex space-x-2">
           <button onclick="switchTab('combat')" id="tabBtn-combat" class="px-4 py-1.5 rounded-lg text-sm font-bold bg-purple-700 text-white shadow flex items-center gap-2">
@@ -124,8 +131,13 @@
             <i data-lucide="skull" class="w-4 h-4"></i> 4. Bestiario y Acompañantes
           </button>
         </div>
-        <div id="syncStatus" class="text-xs text-emerald-400 flex items-center gap-1.5 font-medium shrink-0">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Conectado a Supabase
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="forceSyncToSupabase()" title="Forzar sincronización con Supabase" class="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-purple-800 text-slate-300 border border-slate-700">
+            Sincronizar BD
+          </button>
+          <div id="syncStatus" class="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Conectando...
+          </div>
         </div>
       </nav>
     </div>
@@ -137,7 +149,7 @@
   <main class="max-w-7xl mx-auto px-4 mt-6">
 
     <!-- =======================================================================
-         PESTAÑA 1: FASE DE COMBATE (OPTIMIZADOR DE TURNO, PACTO Y MUNCIÓN)
+         PESTAÑA 1: FASE DE COMBATE (OPTIMIZADOR DE TURNO, PACTO Y MUNICIÓN)
          ======================================================================= -->
     <section id="tab-combat" class="space-y-6">
 
@@ -152,7 +164,7 @@
                 <i data-lucide="check-square" class="w-5 h-5 text-purple-400"></i>
                 Lista de Control y Optimizador del Turno Actual
               </h2>
-              <p class="text-xs text-slate-400">Registra lo que haces en tu turno físico para maximizar tu daño por asalto</p>
+              <p class="text-xs text-slate-400">Haz clic en cualquier casilla para marcar/desmarcar lo que ya ejecutaste en tu turno</p>
             </div>
             <div class="flex items-center gap-2">
               <span id="roundCounter" class="text-xs font-bold px-2.5 py-1 rounded bg-slate-800 text-amber-400 border border-slate-700">Asalto 1</span>
@@ -164,7 +176,7 @@
 
           <!-- Casillas Interactivas: Acción, Acción Adicional y Reacción -->
           <div class="grid grid-cols-3 gap-3 my-4">
-            <div onclick="toggleActionEconomy('action_used')" id="box-action" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between">
+            <div onclick="toggleActionEconomy('action_used')" id="box-action" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between select-none">
               <div>
                 <div class="text-xs font-bold uppercase text-slate-300">Acción</div>
                 <div id="status-action" class="text-[11px] text-emerald-400 font-semibold">Disponible</div>
@@ -172,7 +184,7 @@
               <div id="check-action" class="w-6 h-6 rounded-md border-2 border-slate-600 flex items-center justify-center"></div>
             </div>
 
-            <div onclick="toggleActionEconomy('bonus_action_used')" id="box-bonus" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between">
+            <div onclick="toggleActionEconomy('bonus_action_used')" id="box-bonus" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between select-none">
               <div>
                 <div class="text-xs font-bold uppercase text-slate-300">Acción Adicional</div>
                 <div id="status-bonus" class="text-[11px] text-emerald-400 font-semibold">Disponible</div>
@@ -180,7 +192,7 @@
               <div id="check-bonus" class="w-6 h-6 rounded-md border-2 border-slate-600 flex items-center justify-center"></div>
             </div>
 
-            <div onclick="toggleActionEconomy('reaction_used')" id="box-reaction" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between">
+            <div onclick="toggleActionEconomy('reaction_used')" id="box-reaction" class="cursor-pointer rounded-xl p-3 border border-slate-700 bg-slate-900/70 hover:border-purple-500 transition flex items-center justify-between select-none">
               <div>
                 <div class="text-xs font-bold uppercase text-slate-300">Reacción</div>
                 <div id="status-reaction" class="text-[11px] text-emerald-400 font-semibold">Disponible</div>
@@ -232,13 +244,13 @@
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
               <h2 class="text-base font-bold text-white">Registro de la Dama del Dolor</h2>
-              <p class="text-xs text-slate-400">Haz clic directo en cada casilla para estampar tu sello (-30° a +30°)</p>
+              <p class="text-xs text-slate-400">Haz clic directo en cada uno de los 10 espacios para estampar el sello (-30° a +30°)</p>
             </div>
             <span id="stampCountBadge" class="text-xs font-black px-2.5 py-1 rounded-full bg-red-950 text-red-300 border border-red-800">0 / 10</span>
           </div>
 
           <div id="stampGrid" class="grid grid-cols-5 gap-2.5 my-4">
-            <!-- 10 casillas interactivas renderizadas por app.js usando el logo real -->
+            <!-- 10 casillas siempre visibles e interactivas -->
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
@@ -248,17 +260,19 @@
         </div>
       </div>
 
-      <!-- Barra de Castigo Arcano y Secuencia de Mayor Daño -->
-      <div class="bg-gradient-to-r from-purple-950/50 via-panel to-red-950/40 border border-purple-800/40 rounded-2xl p-4">
+      <!-- Barra de Reglas Dinámicas de Brujo según Nivel + Castigo Arcano -->
+      <div class="bg-gradient-to-r from-purple-950/50 via-panel to-red-950/40 border border-purple-800/40 rounded-2xl p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-3">
             <div class="p-2.5 rounded-xl bg-purple-900/50 border border-purple-600/40 text-purple-300">
               <i data-lucide="zap" class="w-5 h-5"></i>
             </div>
             <div>
-              <div class="text-xs uppercase tracking-wider text-purple-300 font-bold">Secuencia Recomendada de Daño Explosivo (Nova)</div>
-              <div class="text-sm text-slate-200 mt-0.5">
-                1) <strong>Acción Adicional:</strong> Maldición del Filo Maléfico (o <em>Maleficio +1d6</em>) → 2) <strong>Acción:</strong> Invocar/Atacar 2 veces con tu Arma del Pacto (<em>Filo Sediento</em>) → 3) <strong>En impacto:</strong> Activar <strong>Castigo Arcano</strong> para sumar fuerza masiva y derribar al objetivo.
+              <div id="warlockRulebookHeader" class="text-xs uppercase tracking-wider text-purple-300 font-bold">
+                Reglamento Activo de Brujo (Nivel 6) • Comp. +3 • 2 Espacios Nvl 3 • 3 Invocaciones • 7 Conjuros Conocidos
+              </div>
+              <div id="warlockRulebookDetails" class="text-xs text-slate-200 mt-1">
+                <strong>Escalado automático activo:</strong> Filo Sediento (2 ataques con Arma de Pacto) • Castigo Arcano (<strong>4d8 Fuerza</strong> + Derribo) • Descarga Sobrenatural (<strong>2 rayos</strong> de 1d10) • Armadura de Agathys (<strong>15 PG Temp / 15 Frío</strong>) • Espectro Maldito (<strong>+3 PG Temp, Ataque +9</strong>).
               </div>
             </div>
           </div>
@@ -271,7 +285,7 @@
       <!-- Fila Principal de Combate: Selector de Arma del Pacto + Munición | Conjuros | Acompañantes y Bitácora -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <!-- COLUMNA IZQUIERDA (5 cols): Selector de Arma del Pacto + Rastreador de Munición + Armas Secundarias + Atributos -->
+        <!-- COLUMNA IZQUIERDA (5 cols): Selector de Arma del Pacto + Rastreador de Munición + Características Editables -->
         <div class="lg:col-span-5 space-y-4">
 
           <!-- Selector de Arma del Pacto Invocada al Momento -->
@@ -283,25 +297,21 @@
                 </span>
                 <h3 class="text-sm font-bold text-white mt-1">¿Qué Arma del Pacto vas a usar ahora?</h3>
               </div>
-              <span class="text-xs font-bold text-amber-400">2 Ataques / Turno</span>
+              <span id="extraAttackBadge" class="text-xs font-bold text-amber-400">2 Ataques / Turno</span>
             </div>
 
             <!-- Menú Desplegable con las 4 Favoritas Primero y el resto del Arsenal 5e debajo -->
             <div>
               <select id="pactWeaponSelector" onchange="changeActivePactWeapon(this.value)" class="w-full bg-slate-950 border border-purple-500/60 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                <!-- Opciones generadas dinámicamente: Grupo 1 (4 Favoritas de Lior) + Grupo 2 (Otras armas invocables 5e) -->
+                <!-- Opciones generadas dinámicamente -->
               </select>
             </div>
 
             <!-- Botones de Acceso Rápido a las 4 Favoritas -->
-            <div id="favoritePactQuickBar" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              <!-- Botones rápidos: Pistola, Arpón, Mosquete, Martillo -->
-            </div>
+            <div id="favoritePactQuickBar" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5"></div>
 
             <!-- Tarjeta Interactiva del Arma del Pacto Actualmente Invocada -->
-            <div id="activePactWeaponCard" class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5">
-              <!-- Desglose exacto de ataque, daño con buffs y gasto automático de munición -->
-            </div>
+            <div id="activePactWeaponCard" class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5"></div>
 
             <!-- Rastreador Dual de Munición para Ambas Armas de Fuego (Pistola y Mosquete) -->
             <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
@@ -341,19 +351,19 @@
 
           <!-- Otras Armas Equipadas Físicamente (Ej. Daga secundaria) -->
           <div class="space-y-2">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Armas Secundarias Equipadas y Equipo Activo</h4>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Armas Secundarias Equipadas</h4>
             <div id="secondaryWeaponsList" class="space-y-2"></div>
           </div>
 
-          <!-- Atributos, Salvaciones y Manos Curativas -->
+          <!-- Atributos Editables con Botones + / - e Input Directo -->
           <div class="bg-panel border border-slate-800 rounded-2xl p-4">
             <div class="flex items-center justify-between mb-3">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Características y Salvaciones (Editables)</h4>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Estadísticas Base y Salvaciones (Editables)</h4>
               <button onclick="useHealingHands()" id="btnHealingHands" class="text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900 font-semibold">
                 Manos Curativas (+6 PG)
               </button>
             </div>
-            <div id="statsGrid" class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center"></div>
+            <div id="statsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-center"></div>
           </div>
         </div>
 
@@ -365,14 +375,14 @@
             </h3>
             <span id="spellSaveBadge" class="text-xs font-bold text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded border border-purple-800">CD 16 | Ataque +8</span>
           </div>
-          <div id="combatSpellsList" class="space-y-2.5 max-h-[680px] overflow-y-auto pr-1"></div>
+          <div id="combatSpellsList" class="space-y-2.5 max-h-[720px] overflow-y-auto pr-1"></div>
         </div>
 
-        <!-- COLUMNA DERECHA (3 cols): Acompañantes Invocados + Bitácora de Acciones -->
+        <!-- COLUMNA DERECHA (3 cols): Acompañantes Activos (Pourcoon + Espectro) + Bitácora -->
         <div class="lg:col-span-3 space-y-4">
           <div>
             <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2 mb-3">
-              <i data-lucide="ghost" class="w-4 h-4 text-cyan-400"></i> Acompañantes en Combate
+              <i data-lucide="ghost" class="w-4 h-4 text-cyan-400"></i> Mascota y Espíritu Activos
             </h3>
             <div id="combatCompanionsList" class="space-y-2.5"></div>
           </div>
@@ -400,7 +410,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <h2 class="text-lg font-bold text-white">Compendio de Arsenal, Armaduras e Inventario 5e</h2>
-            <p class="text-xs text-slate-400">Marca <strong>Favorita Pacto</strong> para tus armas principales en el selector de combate, <strong>Invocable Pacto</strong> para habilitarla en el menú de invocación, o <strong>Equipado</strong> para llevarla puesta.</p>
+            <p class="text-xs text-slate-400">Si equipas o desequipas una armadura, escudo u objeto con bono de CA, el cálculo superior de Clase de Armadura se actualizará al instante.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <input id="invSearchInput" type="text" oninput="renderInventoryTab()" placeholder="Buscar arma, armadura u objeto..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500" />
@@ -475,7 +485,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <h2 class="text-lg font-bold text-white">Bestiario Completo de Conjuración, Familiares y Transformaciones 5e</h2>
-            <p class="text-xs text-slate-400">Activa <strong>Invocado en Combate</strong> en cualquier criatura para desplegarla inmediatamente en la Pestaña 1.</p>
+            <p class="text-xs text-slate-400">Tu mascota <strong>Pourcoon</strong> y tu <strong>Espectro Maldito</strong> ya vienen activos por defecto. Activa cualquier otra criatura cuando la conjures.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <input id="compSearchInput" type="text" oninput="renderCompanionsTab()" placeholder="Buscar criatura, demonio, no-muerto..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500" />
@@ -484,7 +494,7 @@
               <option value="summoned">Solo Invocados Activos</option>
               <option value="No-muerto">No-muertos</option>
               <option value="Infernal">Infernales (Demonios y Diablos)</option>
-              <option value="Aberración">Aberraciones</option>
+              <option value="Aberración">Aberraciones / Mascota</option>
               <option value="Elemental">Elementales</option>
               <option value="Feérico">Feéricos</option>
               <option value="Bestia">Bestias / Polimorfar</option>
@@ -512,7 +522,7 @@
       <div id="modalBody" class="space-y-3 text-xs"></div>
       <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
         <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">Cancelar</button>
-        <button id="modalSaveBtn" class="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">Guardar en Supabase</button>
+        <button id="modalSaveBtn" class="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">Guardar Cambios</button>
       </div>
     </div>
   </div>
