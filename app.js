@@ -415,7 +415,42 @@ function renderAll() {
   document.getElementById('spellSaveBadge').textContent = `CD ${spellSaveDC} | Ataque +${spellAttackBonus}`;
   document.getElementById('hexcurseDesc').textContent = `+${prog.prof} daño por impacto, Crítico 19-20, Cura ${prog.level + chaMod} PG al morir.`;
   document.getElementById('shroudDesc').textContent = `Asusta a 10 pies (CD ${spellSaveDC}) y suma +${prog.level} daño necrótico 1 vez/turno.`;
-  document.getElementById('btnHealingHands').textContent = `Manos Curativas (+${prog.level} PG)`;
+  ensureProgressionData();
+  const csProg = character.combat_state;
+  const classSummaryEl = document.getElementById('classSummaryLabel');
+  if (classSummaryEl) classSummaryEl.textContent = character.class_name || 'Brujo (Filo Maléfico)';
+
+  const hhBtn = document.getElementById('btnHealingHands');
+  if (hhBtn) {
+    if (csProg.healing_hands_used) {
+      hhBtn.textContent = `Manos Curativas (Gastada 0/1 • Desc. Largo)`;
+      hhBtn.className = 'text-xs px-2.5 py-1 rounded bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed font-semibold';
+    } else if (Number(character.hp_current) >= Number(character.hp_max)) {
+      hhBtn.textContent = `Manos Curativas (+${prog.level} PG • Vida Máx)`;
+      hhBtn.className = 'text-xs px-2.5 py-1 rounded bg-emerald-950/50 text-emerald-400/70 border border-emerald-800/50 font-semibold';
+    } else {
+      hhBtn.textContent = `Manos Curativas (+${prog.level} PG • 1/1 Disp.)`;
+      hhBtn.className = 'text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-600 hover:bg-emerald-800 font-bold shadow';
+    }
+  }
+
+  // Renderizar barra de Invocaciones Sobrenaturales, Dotes y Rasgos de Progresión activos
+  const featBar = document.getElementById('activeProgressionFeaturesBar');
+  if (featBar) {
+    const invNames = (csProg.invocations_known || []).map(id => ELDRITCH_INVOCATIONS_CATALOG.find(x => x.id === id)?.name || id);
+    const featNames = (csProg.feats || []).map(id => FEATS_CATALOG_5E.find(x => x.id === id)?.name.replace(' (Ya adquirida)', '') || id);
+    let htmlBadges = `<span class="text-[11px] font-bold text-purple-300 uppercase">Progresión Activa:</span>`;
+    invNames.forEach(n => {
+      htmlBadges += `<span class="px-2 py-0.5 rounded bg-purple-950/90 text-purple-200 border border-purple-700/60 text-[11px] font-semibold">Invocación: ${n}</span>`;
+    });
+    featNames.forEach(n => {
+      htmlBadges += `<span class="px-2 py-0.5 rounded bg-amber-950/80 text-amber-200 border border-amber-700/60 text-[11px] font-semibold">Dote: ${n}</span>`;
+    });
+    (csProg.multiclass_features || []).slice(-3).forEach(mf => {
+      htmlBadges += `<span class="px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-200 border border-cyan-700/60 text-[11px]">${mf.split('(')[0].trim()}</span>`;
+    });
+    featBar.innerHTML = htmlBadges;
+  }
 
   renderActionEconomy();
   renderStampCard();
@@ -492,8 +527,12 @@ function renderPactWeaponSelectorAndCard(prog, chaMod) {
   const toHit = prog.prof + chaMod + magicMod;
   const flatDmg = chaMod + magicMod + hexBonus;
 
+  const hasLifedrinker = Array.isArray(cs.invocations_known) && cs.invocations_known.includes('lifedrinker') && prog.level >= 12;
+  const lifedrinkerBonus = hasLifedrinker ? Math.max(1, chaMod) : 0;
+
   let extraTags = [];
   if (hexBonus > 0) extraTags.push(`+${hexBonus} Maldición (Crítico 19-20)`);
+  if (lifedrinkerBonus > 0) extraTags.push(`+${lifedrinkerBonus} Necrótico (Bebedor de Vida)`);
   if (hexSpellActive) extraTags.push(`+1d6 Necrótico (Maleficio)`);
   if (shroudBonus > 0) extraTags.push(`+${shroudBonus} Necrótico (Mortaja 1/turno)`);
 
@@ -850,7 +889,9 @@ function renderCombatSpells(prog, dc, atkBonus) {
     const levelBadge = isCantrip ? 'Truco' : `Nvl ${sp.level} (Se lanza a Nvl ${Math.max(sp.level, prog.slotLevel)})`;
     let scaledEffect = sp.damage_dice || '';
     if (sp.name.toLowerCase().includes('descarga sobrenatural')) {
-      scaledEffect = `${prog.eldritchBeams} ${prog.eldritchBeams > 1 ? 'rayos' : 'rayo'} de 1d10 (+${atkBonus} al impacto)`;
+      const hasAgonizing = Array.isArray(character.combat_state?.invocations_known) && character.combat_state.invocations_known.includes('agonizing_blast');
+      const agonizingText = hasAgonizing ? `+${ getMod(character.cha) }` : '';
+      scaledEffect = `${prog.eldritchBeams} ${prog.eldritchBeams > 1 ? 'rayos' : 'rayo'} de 1d10${agonizingText} (+${atkBonus} al impacto)`;
     } else if (sp.name.toLowerCase().includes('toque helado')) {
       scaledEffect = `${prog.cantripDiceCount}d8 (+${atkBonus} al impacto)`;
     } else if (sp.name.toLowerCase().includes('agathys')) {
@@ -959,10 +1000,11 @@ async function companionAttack(compName, atkName, bonus, dmg) {
 // 9. ESTADÍSTICAS EDITABLES (FUE, DES, CON, INT, SAB, CAR) CON BOTONES + Y -
 // ============================================================================
 function renderStatsGrid(prog) {
+  const hasResilientCon = Array.isArray(character.combat_state?.feats) && character.combat_state.feats.includes('resilient_con');
   const attrs = [
     { key: 'str', label: 'Fuerza (FUE)', saveProf: false },
     { key: 'dex', label: 'Destreza (DES)', saveProf: false },
-    { key: 'con', label: 'Constitución (CON)', saveProf: false },
+    { key: 'con', label: 'Constitución (CON)', saveProf: hasResilientCon },
     { key: 'int', label: 'Inteligencia (INT)', saveProf: false },
     { key: 'wis', label: 'Sabiduría (SAB)', saveProf: true },
     { key: 'cha', label: 'Carisma (CAR)', saveProf: true }
@@ -1171,10 +1213,35 @@ function renderCompanionsTab() {
 // 11. FUNCIONES DE GUARDADO Y ACTUALIZACIÓN (LOCAL + SUPABASE)
 // ============================================================================
 async function updateLevel(newLevel) {
-  character.level = Number(newLevel);
-  const prog = getWarlockProgression(character.level);
-  await addCombatLog(`Lior Kurogane actualizó a Nivel ${prog.level} (Comp. +${prog.prof}, ${prog.slotCount} espacios Nvl ${prog.slotLevel}, Castigo Arcano ${prog.smiteDice}).`);
-  await saveCharacterCore();
+  ensureProgressionData();
+  const targetLvl = Number(newLevel);
+  const currentLvl = Number(character.level) || 6;
+
+  if (targetLvl > currentLvl) {
+    // Abrir el asistente guiado de subida de nivel sin alterar el estado hasta que el usuario confirme
+    openLevelUpWizard(targetLvl);
+    return;
+  }
+
+  if (targetLvl < currentLvl) {
+    if (!confirm(`¿Deseas ajustar manualmente el nivel de ${currentLvl} a Nivel ${targetLvl}? (Se recalcularán tus bonificadores, espacios de pacto y PG máximos proporcionalmente)`)) {
+      document.getElementById('levelSelect').value = currentLvl;
+      return;
+    }
+    const levelDiff = currentLvl - targetLvl;
+    const avgLossPerLevel = 5 + getMod(character.con);
+    character.level = targetLvl;
+    character.combat_state.class_levels = { Brujo: targetLvl };
+    character.class_name = 'Brujo (Filo Maléfico)';
+    character.hp_max = Math.max(10, Number(character.hp_max) - (levelDiff * avgLossPerLevel));
+    character.hp_current = Math.min(character.hp_current, character.hp_max);
+    document.getElementById('hpMax').value = character.hp_max;
+    document.getElementById('hpCurrent').value = character.hp_current;
+
+    const prog = getWarlockProgression(character.level);
+    await addCombatLog(`Ajuste manual de nivel: Nivel ${prog.level} (PG Máx: ${character.hp_max}, Comp. +${prog.prof}, ${prog.slotCount} espacios Nvl ${prog.slotLevel}).`);
+    await saveCharacterCore();
+  }
 }
 
 async function saveCharacterCore() {
@@ -1187,10 +1254,17 @@ async function saveCharacterCore() {
   if (isSupabaseConnected && supabaseClient) {
     await supabaseClient.from('characters').update({
       name: character.name,
+      class_name: character.class_name || 'Brujo (Filo Maléfico)',
       level: character.level,
       hp_current: character.hp_current,
       hp_max: character.hp_max,
       hp_temp: character.hp_temp,
+      str: character.str,
+      dex: character.dex,
+      con: character.con,
+      int: character.int,
+      wis: character.wis,
+      cha: character.cha,
       spell_slots_used: character.spell_slots_used,
       ammo_pistol: character.ammo_pistol,
       ammo_musket: character.ammo_musket,
@@ -1223,7 +1297,9 @@ async function longRest() {
   character.hp_current = character.hp_max;
   character.hp_temp = 0;
   character.spell_slots_used = 0;
+  ensureProgressionData();
   character.combat_state = {
+    ...character.combat_state,
     round: 1,
     action_used: false,
     bonus_action_used: false,
@@ -1233,16 +1309,44 @@ async function longRest() {
     necrotic_shroud_used: false,
     healing_hands_used: false,
     shield_active: false,
-    concentration_spell: null
+    concentration_spell: null,
+    arcanum_used: { 6: false, 7: false, 8: false, 9: false }
   };
   await addCombatLog('Descanso Largo: PG, Espacios de Pacto y rasgos raciales restaurados.');
   await saveCharacterCore();
 }
 
 async function useHealingHands() {
-  character.hp_current = Math.min(character.hp_max, character.hp_current + character.level);
-  character.combat_state.action_used = true;
-  await addCombatLog(`Manos Curativas: Recuperó +${character.level} PG.`);
+  ensureProgressionData();
+  const cs = character.combat_state;
+  const maxHp = Number(character.hp_max) || 48;
+  const curHp = Number(character.hp_current) || 0;
+  const healCap = Number(character.level) || 6;
+
+  // Regla D&D 5e Aasimar (Manos Curativas): 1 uso por descanso largo
+  if (cs.healing_hands_used) {
+    alert('Manos Curativas ya fue utilizada. Según las reglas de Aasimar (D&D 5e), no puedes volver a emplear este rasgo hasta finalizar un Descanso Largo.');
+    return;
+  }
+
+  // No permitir gasto si ya tiene todos sus Puntos de Golpe máximos
+  if (curHp >= maxHp) {
+    alert(`Lior Kurogane ya tiene todos sus Puntos de Golpe al máximo (${curHp}/${maxHp} PG). No se gastó Manos Curativas.`);
+    return;
+  }
+
+  const newHp = Math.min(maxHp, curHp + healCap);
+  const actualRecovered = newHp - curHp;
+
+  character.hp_current = newHp;
+  // CRÍTICO: Sincronizar el input del DOM ANTES de llamar a saveCharacterCore() para que no sobrescriba con el valor viejo
+  const hpInput = document.getElementById('hpCurrent');
+  if (hpInput) hpInput.value = newHp;
+
+  cs.action_used = true;
+  cs.healing_hands_used = true;
+
+  await addCombatLog(`Manos Curativas (1 Acción): Recuperó +${actualRecovered} PG (${curHp} → ${newHp}/${maxHp} PG). [1/1 uso gastado hasta Descanso Largo]`);
   await saveCharacterCore();
 }
 
@@ -1548,4 +1652,793 @@ async function deleteCompanion(id) {
   saveLocalBackup();
   renderAll();
   if (isSupabaseConnected && supabaseClient) await supabaseClient.from('character_companions').delete().eq('id', id);
+}
+
+
+// ============================================================================
+// 13. CATÁLOGOS OFICIALES DE PROGRESIÓN D&D 5E (CLASES, INVOCACIONES, DOTES)
+// ============================================================================
+const DND5E_CLASSES = {
+  Brujo: {
+    name: 'Brujo (Filo Maléfico)',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Carisma 13+ (Clase Principal)',
+    checkReq: (c) => Number(c.cha) >= 13,
+    featuresByLevel: {
+      1: ['Patrón Sobrenatural: El Filo Maléfico (Guerrero Maléfico, Maldición del Filo Maléfico)', 'Magia del Pacto'],
+      2: ['Invocaciones Sobrenaturales (2 activas)'],
+      3: ['Don del Pacto: Pacto del Filo'],
+      4: ['Mejora de Característica o Dote (Nivel 4)'],
+      5: ['Invocación adicional (Filo Sediento: 2 ataques)', 'Espacios de Conjuro de Nivel 3'],
+      6: ['Espectro Maldito (Alza el espíritu de un humanoide abatido 1/descanso largo)'],
+      7: ['Espacios de Conjuro de Nivel 4', '4ª Invocación Sobrenatural'],
+      8: ['Mejora de Característica o Dote (Nivel 8)'],
+      9: ['Espacios de Conjuro de Nivel 5', '5ª Invocación Sobrenatural'],
+      10: ['Armadura de Maleficios (Como reacción, si el objetivo maldito te impacta, tira 1d6: con 4+ el ataque falla)'],
+      11: ['Arcanum Místico (Conjuro de Nivel 6, 1/descanso largo)', '3er Espacio de Magia del Pacto'],
+      12: ['Mejora de Característica o Dote (Nivel 12)', '6ª Invocación Sobrenatural'],
+      13: ['Arcanum Místico (Conjuro de Nivel 7, 1/descanso largo)'],
+      14: ['Maestro de los Maleficios (Puedes transferir la Maldición del Filo Maléfico cuando muere el objetivo)'],
+      15: ['Arcanum Místico (Conjuro de Nivel 8, 1/descanso largo)', '7ª Invocación Sobrenatural'],
+      16: ['Mejora de Característica o Dote (Nivel 16)'],
+      17: ['Arcanum Místico (Conjuro de Nivel 9, 1/descanso largo)', '4º Espacio de Magia del Pacto'],
+      18: ['8ª Invocación Sobrenatural'],
+      19: ['Mejora de Característica o Dote (Nivel 19)'],
+      20: ['Maestro Sobrenatural (1 minuto para recuperar todos los espacios de Magia del Pacto, 1/descanso largo)']
+    }
+  },
+  Paladin: {
+    name: 'Paladín',
+    hitDie: 10,
+    avgHp: 6,
+    reqText: 'Fuerza 13+ y Carisma 13+',
+    checkReq: (c) => Number(c.str) >= 13 && Number(c.cha) >= 13,
+    featuresByLevel: {
+      1: ['Sentido Divino (1 + CAR usos)', 'Imposición de Manos (Reserva de 5 PG x Nivel de Paladín)'],
+      2: ['Castigo Divino (+2d8 radiante con espacios de nivel 1)', 'Estilo de Combate', 'Lanzamiento de Conjuros de Paladín'],
+      3: ['Salud Divina (Inmune a enfermedades)', 'Juramento Sagrado (Canalizar Divinidad)'],
+      4: ['Mejora de Característica o Dote (Paladín 4)'],
+      5: ['Ataque Extra (Paladín 5)', 'Conjuros de Paladín de Nivel 2'],
+      6: ['Aura de Protección (Suma tu modificador de Carisma +5 a todas tus tiradas de salvación y aliados a 10 pies)']
+    }
+  },
+  Guerrero: {
+    name: 'Guerrero',
+    hitDie: 10,
+    avgHp: 6,
+    reqText: 'Fuerza 13+ o Destreza 13+',
+    checkReq: (c) => Number(c.str) >= 13 || Number(c.dex) >= 13,
+    featuresByLevel: {
+      1: ['Estilo de Combate (+2 ataque a distancia con Arquería o +1 CA con Defensa)', 'Tomar Aliento (Recupera 1d10 + Nivel de Guerrero como acción adicional, 1/descanso corto)'],
+      2: ['Oleada de Acción (Action Surge: 1 acción completa adicional en tu turno, 1/descanso corto)'],
+      3: ['Arquetipo Marcial (Maestro de Batalla / Campeón / Caballero Arcano)'],
+      4: ['Mejora de Característica o Dote (Guerrero 4)']
+    }
+  },
+  Hechicero: {
+    name: 'Hechicero',
+    hitDie: 6,
+    avgHp: 4,
+    reqText: 'Carisma 13+',
+    checkReq: (c) => Number(c.cha) >= 13,
+    featuresByLevel: {
+      1: ['Origen Hechiceril (Alma Divina / Linaje Dracónico / Magia Sombría)', 'Lanzamiento de Conjuros de Hechicero (4 trucos + espacios de nivel 1)'],
+      2: ['Fuente de Magia (Puntos de Hechicería = Nivel de Hechicero)', 'Conversión Flexible de Espacios'],
+      3: ['Metamagia (Conjuro Acelerado: lanza conjuro de 1 acción como acción adicional; Conjuro Gemelo)']
+    }
+  },
+  Bardo: {
+    name: 'Bardo',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Carisma 13+',
+    checkReq: (c) => Number(c.cha) >= 13,
+    featuresByLevel: {
+      1: ['Inspiración Bárdica (CAR usos de d6 como acción adicional)', 'Lanzamiento de Conjuros de Bardo'],
+      2: ['Aprendiz de Mucho (Mitad de competencia a toda prueba no competente)', 'Canción de Descanso (+1d6 en descanso corto)'],
+      3: ['Colegio de Bardo (Colegio de las Espadas / Elocuencia / Valor)', 'Pericia (Dobla competencia en 2 habilidades)']
+    }
+  },
+  Picaro: {
+    name: 'Pícaro',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Destreza 13+',
+    checkReq: (c) => Number(c.dex) >= 13,
+    featuresByLevel: {
+      1: ['Ataque Furtivo (+1d6 daño extra con ventaja o aliado a 5 pies)', 'Pericia (Dobla competencia en 2 habilidades)', 'Jerga de Ladrones'],
+      2: ['Acción Astuta (Correr, Destrabarse o Esconderse como acción adicional en cada turno)'],
+      3: ['Arquetipo de Pícaro (Espadachín / Asesino / Embaucador Arcano)', 'Ataque Furtivo (+2d6)']
+    }
+  },
+  Clerigo: {
+    name: 'Clérigo',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Sabiduría 13+',
+    checkReq: (c) => Number(c.wis) >= 13,
+    featuresByLevel: {
+      1: ['Dominio Divino (Paz / Crepúsculo / Guerra / Tumba)', 'Lanzamiento de Conjuros de Clérigo'],
+      2: ['Canalizar Divinidad (1/descanso corto)']
+    }
+  },
+  Mago: {
+    name: 'Mago',
+    hitDie: 6,
+    avgHp: 4,
+    reqText: 'Inteligencia 13+',
+    checkReq: (c) => Number(c.int) >= 13,
+    featuresByLevel: {
+      1: ['Lanzamiento de Conjuros de Mago', 'Recuperación Arcana (1/día en descanso corto)'],
+      2: ['Tradición Arcana (Adivinación / Guerra / Evocación)']
+    }
+  },
+  Druida: {
+    name: 'Druida',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Sabiduría 13+',
+    checkReq: (c) => Number(c.wis) >= 13,
+    featuresByLevel: {
+      1: ['Druídico', 'Lanzamiento de Conjuros de Druida'],
+      2: ['Forma Salvaje (2 usos/descanso corto)', 'Círculo Druídico']
+    }
+  },
+  Explorador: {
+    name: 'Explorador',
+    hitDie: 10,
+    avgHp: 6,
+    reqText: 'Destreza 13+ y Sabiduría 13+',
+    checkReq: (c) => Number(c.dex) >= 13 && Number(c.wis) >= 13,
+    featuresByLevel: {
+      1: ['Enemigo Predilecto / Presa Predilecta', 'Explorador Natural / Hábil'],
+      2: ['Estilo de Combate', 'Lanzamiento de Conjuros de Explorador']
+    }
+  },
+  Barbaro: {
+    name: 'Bárbaro',
+    hitDie: 12,
+    avgHp: 7,
+    reqText: 'Fuerza 13+',
+    checkReq: (c) => Number(c.str) >= 13,
+    featuresByLevel: {
+      1: ['Furia (2 usos/día, resistencia a contundente, cortante y perforante)', 'Defensa sin Armadura (10 + DES + CON)'],
+      2: ['Ataque Temerario', 'Sentido del Peligro']
+    }
+  },
+  Monje: {
+    name: 'Monje',
+    hitDie: 8,
+    avgHp: 5,
+    reqText: 'Destreza 13+ y Sabiduría 13+',
+    checkReq: (c) => Number(c.dex) >= 13 && Number(c.wis) >= 13,
+    featuresByLevel: {
+      1: ['Defensa sin Armadura (10 + DES + SAB)', 'Artes Marciales'],
+      2: ['Ki (2 puntos)', 'Movimiento sin Armadura']
+    }
+  }
+};
+
+const ELDRITCH_INVOCATIONS_CATALOG = [
+  { id: 'improved_pact_weapon', name: 'Arma de Pacto Mejorada', minLevel: 1, reqText: 'Pacto del Filo', desc: 'Tu Arma del Pacto es foco arcano, gana +1 a tiradas de ataque y daño, y permite invocar armas a distancia.' },
+  { id: 'thirsting_blade', name: 'Filo Sediento', minLevel: 5, reqText: 'Brujo Nvl 5+, Pacto del Filo', desc: 'Atacas 2 veces en lugar de una cuando realizas la acción de Atacar con tu Arma del Pacto.' },
+  { id: 'eldritch_smite', name: 'Castigo Arcano', minLevel: 5, reqText: 'Brujo Nvl 5+, Pacto del Filo', desc: 'Una vez por turno al impactar con tu Arma del Pacto, gastas 1 espacio de conjuro para infligir +1d8 de daño por fuerza (+1d8/nivel del espacio) y derribar al objetivo.' },
+  { id: 'agonizing_blast', name: 'Descarga Agonizante', minLevel: 1, reqText: 'Truco Descarga Sobrenatural', desc: 'Sumas tu modificador de Carisma (+5) al daño de cada rayo de Descarga Sobrenatural.' },
+  { id: 'devils_sight', name: 'Visión del Diablo', minLevel: 1, reqText: 'Sin requisito de nivel', desc: 'Ves normalmente en oscuridad tanto mágica como no mágica hasta a 120 pies.' },
+  { id: 'eldritch_mind', name: 'Mente Sobrenatural', minLevel: 1, reqText: 'Sin requisito de nivel', desc: 'Tienes Ventaja en las tiradas de salvación de Constitución para mantener la Concentración en un conjuro.' },
+  { id: 'repelling_blast', name: 'Descarga Repulsora', minLevel: 1, reqText: 'Truco Descarga Sobrenatural', desc: 'Cuando impactas a una criatura con Descarga Sobrenatural, puedes empujarla hasta 10 pies lejos de ti en línea recta.' },
+  { id: 'fiendish_vigor', name: 'Vigor Infernal', minLevel: 1, reqText: 'Sin requisito de nivel', desc: 'Puedes lanzar Vitalidad Falsa a voluntad a nivel 1 sin gastar espacio de conjuro (1d4+4 PG temporales).' },
+  { id: 'relentless_hex', name: 'Maleficio Implacable', minLevel: 7, reqText: 'Brujo Nvl 7+, Maleficio o Maldición del Filo Maléfico', desc: 'Como acción adicional, te teletransportas hasta 30 pies a un espacio desocupado a 5 pies del objetivo maldito.' },
+  { id: 'sculptor_of_flesh', name: 'Escultor de Carne', minLevel: 7, reqText: 'Brujo Nvl 7+', desc: 'Puedes lanzar Polimorfar una vez empleando un espacio de conjuro de brujo (1/descanso largo).' },
+  { id: 'tricksters_escape', name: 'Escape del Embaucador', minLevel: 7, reqText: 'Brujo Nvl 7+', desc: 'Puedes lanzar Libertad de Movimiento una vez sobre ti mismo sin gastar un espacio de conjuro (1/descanso largo).' },
+  { id: 'whispers_of_the_grave', name: 'Susurros de la Tumba', minLevel: 9, reqText: 'Brujo Nvl 9+', desc: 'Puedes lanzar Hablar con los Muertos a voluntad sin gastar espacios de conjuro.' },
+  { id: 'ascendant_step', name: 'Paso Ascendente', minLevel: 9, reqText: 'Brujo Nvl 9+', desc: 'Puedes lanzar Levitar sobre ti mismo a voluntad sin gastar espacios de conjuro.' },
+  { id: 'lifedrinker', name: 'Bebedor de Vida', minLevel: 12, reqText: 'Brujo Nvl 12+, Pacto del Filo', desc: 'Cuando impactas a una criatura con tu Arma del Pacto, esta sufre daño necrótico adicional igual a tu modificador de Carisma (+5).' },
+  { id: 'shroud_of_shadow', name: 'Sudario de Sombras', minLevel: 15, reqText: 'Brujo Nvl 15+', desc: 'Puedes lanzar Invisibilidad a voluntad sin gastar espacios de conjuro.' }
+];
+
+const FEATS_CATALOG_5E = [
+  { id: 'fey_touched', name: 'Toque Feérico (Ya adquirida)', bonusStat: 'cha', bonusVal: 0, desc: 'Aprendes Paso Brumoso y un conjuro de nivel 1 (Infligir Heridas), lanzables 1 vez gratis por descanso largo.' },
+  { id: 'war_caster', name: 'Conjurador de Guerra (War Caster)', bonusStat: null, bonusVal: 0, desc: 'Ventaja en salvaciones de Concentración, realizas componentes somáticos con armas/escudo en las manos, y puedes lanzar un conjuro como ataque de oportunidad.' },
+  { id: 'tough', name: 'Duro (Tough)', bonusStat: null, bonusVal: 0, hpPerLevel: 2, desc: 'Tus Puntos de Golpe máximos aumentan en +2 por cada nivel que tengas (+2 PG adicionales cada vez que subes de nivel).' },
+  { id: 'resilient_con', name: 'Resiliente: Constitución', bonusStat: 'con', bonusVal: 1, saveProf: 'con', desc: 'Aumenta tu Constitución en +1 y obtienes competencia en las tiradas de salvación de Constitución.' },
+  { id: 'sharpshooter', name: 'Tirador de Primera (Sharpshooter)', bonusStat: null, bonusVal: 0, desc: 'Atacar a largo alcance no impone desventaja, tus ataques a distancia ignoran cobertura media y tres cuartos, y puedes elegir -5 al ataque para sumar +10 al daño con armas a distancia.' },
+  { id: 'gunner', name: 'Artillero (Gunner)', bonusStat: 'dex', bonusVal: 1, desc: 'Aumenta tu Destreza en +1, ignoras la propiedad De Carga de las armas de fuego y estar a 5 pies de un enemigo no te impone desventaja en ataques a distancia.' },
+  { id: 'lucky', name: 'Afortunado (Lucky)', bonusStat: null, bonusVal: 0, desc: 'Tienes 3 puntos de suerte por descanso largo para repetir cualquier d20 de ataque, prueba, salvación o ataque enemigo contra ti.' },
+  { id: 'alert', name: 'Alerta (Alert)', bonusStat: null, bonusVal: 0, initBonus: 5, desc: '+5 a la Iniciativa, no puedes ser sorprendido mientras estés consciente y los enemigos ocultos no ganan ventaja al atacarte.' },
+  { id: 'metamagic_adept', name: 'Adepto Metamágico', bonusStat: null, bonusVal: 0, desc: 'Aprendes 2 opciones de Metamagia de Hechicero y ganas 2 puntos de hechicería (útil para acelerar un conjuro como acción adicional).' }
+];
+
+// Asegurar estructura de progresión dentro de character.combat_state
+function ensureProgressionData() {
+  if (!character.combat_state) character.combat_state = {};
+  const cs = character.combat_state;
+  if (!cs.class_levels || typeof cs.class_levels !== 'object') {
+    cs.class_levels = { Brujo: Number(character.level) || 6 };
+  }
+  if (!Array.isArray(cs.invocations_known)) {
+    cs.invocations_known = ['improved_pact_weapon', 'thirsting_blade', 'eldritch_smite'];
+  }
+  if (!Array.isArray(cs.feats)) {
+    cs.feats = ['fey_touched'];
+  }
+  if (!cs.arcanum || typeof cs.arcanum !== 'object') {
+    cs.arcanum = { 6: null, 7: null, 8: null, 9: null };
+  }
+  if (!cs.arcanum_used || typeof cs.arcanum_used !== 'object') {
+    cs.arcanum_used = { 6: false, 7: false, 8: false, 9: false };
+  }
+  if (!Array.isArray(cs.multiclass_features)) {
+    cs.multiclass_features = [];
+  }
+  return cs;
+}
+
+
+// ============================================================================
+// 14. ESTADO TRANSACCIONAL DEL ASISTENTE GUIADO DE SUBIDA DE NIVEL
+// ============================================================================
+let levelUpDraft = null;
+
+function openLevelUpWizard(targetTotalLevel = null) {
+  ensureProgressionData();
+  const currentTotal = Number(character.level) || 6;
+  const nextTotal = targetTotalLevel && Number(targetTotalLevel) > currentTotal
+    ? Number(targetTotalLevel)
+    : Math.min(20, currentTotal + 1);
+
+  if (currentTotal >= 20 && (!targetTotalLevel || Number(targetTotalLevel) >= 20)) {
+    alert('Lior Kurogane ya ha alcanzado el Nivel 20 (nivel máximo de D&D 5e).');
+    document.getElementById('levelSelect').value = currentTotal;
+    return;
+  }
+
+  const cs = character.combat_state;
+  const currentWarlockLvl = Number(cs.class_levels?.Brujo) || currentTotal;
+
+  // Crear borrador aislado (si el usuario cancela, character no sufre ningún cambio)
+  levelUpDraft = {
+    step: 1,
+    fromTotalLevel: currentTotal,
+    toTotalLevel: nextTotal,
+    chosenClass: 'Brujo',
+    newClassLevel: currentWarlockLvl + 1,
+    hpMethod: 'fixed', // 'fixed' | 'manual'
+    hpRollValue: DND5E_CLASSES.Brujo.avgHp,
+    asiMode: 'stats', // 'stats' (+2 o +1/+1) | 'feat'
+    asiStat1: 'dex',
+    asiStat2: 'con',
+    asiSplit: 'double', // 'single' (+2 a Stat1) | 'double' (+1 Stat1, +1 Stat2)
+    chosenFeatId: 'war_caster',
+    invocationsSelected: [...(cs.invocations_known || ['improved_pact_weapon', 'thirsting_blade', 'eldritch_smite'])],
+    newSpellId: null,
+    arcanumSpellId: null
+  };
+
+  document.getElementById('levelUpModal').classList.remove('hidden');
+  renderLevelUpWizard();
+}
+
+function cancelLevelUpWizard() {
+  levelUpDraft = null;
+  document.getElementById('levelUpModal').classList.add('hidden');
+  if (character) {
+    document.getElementById('levelSelect').value = character.level;
+  }
+}
+
+function selectDraftClass(classKey) {
+  if (!levelUpDraft) return;
+  const clsInfo = DND5E_CLASSES[classKey];
+  if (!clsInfo || !clsInfo.checkReq(character)) return;
+
+  levelUpDraft.chosenClass = classKey;
+  const prevClassLvl = Number(character.combat_state?.class_levels?.[classKey]) || 0;
+  levelUpDraft.newClassLevel = prevClassLvl + 1;
+  levelUpDraft.hpMethod = 'fixed';
+  levelUpDraft.hpRollValue = clsInfo.avgHp;
+  renderLevelUpWizard();
+}
+
+function doesDraftGrantASI() {
+  if (!levelUpDraft) return false;
+  const cLvl = levelUpDraft.newClassLevel;
+  if (levelUpDraft.chosenClass === 'Guerrero') {
+    return [4, 6, 8, 12, 14, 16, 19].includes(cLvl);
+  }
+  return [4, 8, 12, 16, 19].includes(cLvl);
+}
+
+function getDraftArcanumLevelUnlocked() {
+  if (!levelUpDraft || levelUpDraft.chosenClass !== 'Brujo') return null;
+  const map = { 11: 6, 13: 7, 15: 8, 17: 9 };
+  return map[levelUpDraft.newClassLevel] || null;
+}
+
+function computeDraftHpGain() {
+  if (!levelUpDraft) return 0;
+  const cls = DND5E_CLASSES[levelUpDraft.chosenClass] || DND5E_CLASSES.Brujo;
+  // Si en este nivel sube Constitución con ASI o Dote Resiliente, considerar el nuevo modificador
+  let newCon = Number(character.con) || 15;
+  if (doesDraftGrantASI()) {
+    if (levelUpDraft.asiMode === 'stats') {
+      if (levelUpDraft.asiSplit === 'single' && levelUpDraft.asiStat1 === 'con') newCon = Math.min(20, newCon + 2);
+      if (levelUpDraft.asiSplit === 'double' && (levelUpDraft.asiStat1 === 'con' || levelUpDraft.asiStat2 === 'con')) newCon = Math.min(20, newCon + 1);
+    } else if (levelUpDraft.asiMode === 'feat') {
+      const f = FEATS_CATALOG_5E.find(x => x.id === levelUpDraft.chosenFeatId);
+      if (f && f.bonusStat === 'con') newCon = Math.min(20, newCon + (f.bonusVal || 1));
+    }
+  }
+  const conMod = getMod(newCon);
+  const oldConMod = getMod(character.con);
+  const retroactiveConHp = (conMod > oldConMod) ? (conMod - oldConMod) * levelUpDraft.fromTotalLevel : 0;
+
+  const dieValue = levelUpDraft.hpMethod === 'fixed'
+    ? cls.avgHp
+    : Math.min(cls.hitDie, Math.max(1, Number(levelUpDraft.hpRollValue) || cls.avgHp));
+
+  let featBonusHp = 0;
+  const hasToughAlready = (character.combat_state?.feats || []).includes('tough');
+  const takingToughNow = doesDraftGrantASI() && levelUpDraft.asiMode === 'feat' && levelUpDraft.chosenFeatId === 'tough';
+  if (takingToughNow && !hasToughAlready) {
+    featBonusHp = 2 * levelUpDraft.toTotalLevel;
+  } else if (hasToughAlready) {
+    featBonusHp = 2;
+  }
+
+  return Math.max(1, dieValue + conMod) + retroactiveConHp + featBonusHp;
+}
+
+function stepLevelUpWizard(delta) {
+  if (!levelUpDraft) return;
+  const nextStep = Math.min(5, Math.max(1, levelUpDraft.step + delta));
+  levelUpDraft.step = nextStep;
+  renderLevelUpWizard();
+}
+
+function goToWizardStep(stepNum) {
+  if (!levelUpDraft) return;
+  levelUpDraft.step = stepNum;
+  renderLevelUpWizard();
+}
+
+function toggleDraftInvocation(invId, maxAllowed) {
+  if (!levelUpDraft) return;
+  const list = levelUpDraft.invocationsSelected;
+  const idx = list.indexOf(invId);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+  } else {
+    if (list.length >= maxAllowed) {
+      alert(`A este nivel de Brujo puedes tener un máximo de ${maxAllowed} Invocaciones Sobrenaturales activas. Desmarca una primero si deseas reemplazarla.`);
+      return;
+    }
+    list.push(invId);
+  }
+  renderLevelUpWizard();
+}
+
+function renderLevelUpWizard() {
+  if (!levelUpDraft) return;
+  const d = levelUpDraft;
+  const clsInfo = DND5E_CLASSES[d.chosenClass];
+  document.getElementById('lvlUpModalTitle').textContent =
+    `Subida de Nivel Guiada: Nivel ${d.fromTotalLevel} → Nivel ${d.toTotalLevel} (${clsInfo.name} Nvl ${d.newClassLevel})`;
+
+  const steps = [
+    { num: 1, title: '1. Clase / Multiclase' },
+    { num: 2, title: '2. Puntos de Golpe' },
+    { num: 3, title: '3. Rasgos / Características' },
+    { num: 4, title: '4. Magia e Invocaciones' },
+    { num: 5, title: '5. Resumen y Confirmar' }
+  ];
+
+  document.getElementById('lvlUpStepper').innerHTML = steps.map(s => `
+    <button onclick="goToWizardStep(${s.num})" class="py-2 px-2 rounded-xl border text-center transition truncate ${
+      d.step === s.num
+        ? 'bg-purple-700 border-purple-400 text-white shadow'
+        : (d.step > s.num ? 'bg-emerald-950/60 border-emerald-700/70 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400')
+    }">
+      ${s.title}
+    </button>
+  `).join('');
+
+  document.getElementById('lvlUpPrevBtn').classList.toggle('hidden', d.step === 1);
+  document.getElementById('lvlUpNextBtn').classList.toggle('hidden', d.step === 5);
+  document.getElementById('lvlUpConfirmBtn').classList.toggle('hidden', d.step !== 5);
+
+  const body = document.getElementById('lvlUpStepBody');
+
+  // --- ETAPA 1: SELECCIÓN DE CLASE O MULTICLASE ---
+  if (d.step === 1) {
+    const classCards = Object.entries(DND5E_CLASSES).map(([key, info]) => {
+      const meetsReq = info.checkReq(character);
+      const currentClassLvl = Number(character.combat_state?.class_levels?.[key]) || 0;
+      const nextClassLvl = currentClassLvl + 1;
+      const isSelected = d.chosenClass === key;
+      const unlockedFeatures = info.featuresByLevel[nextClassLvl] || [`Progresión de ${info.name} Nivel ${nextClassLvl}`];
+
+      return `
+        <div onclick="${meetsReq ? `selectDraftClass('${key}')` : ''}" class="p-3.5 rounded-xl border transition ${
+          !meetsReq
+            ? 'bg-slate-950/40 border-slate-800/60 opacity-50 cursor-not-allowed'
+            : (isSelected ? 'bg-purple-950/70 border-purple-400 ring-2 ring-purple-500 cursor-pointer' : 'bg-slate-900/80 border-slate-700 hover:border-purple-500 cursor-pointer')
+        }">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-sm text-white">${info.name}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded ${meetsReq ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' : 'bg-red-950 text-red-300 border border-red-800'}">
+              ${meetsReq ? `Disponible (Nvl ${currentClassLvl} → ${nextClassLvl})` : 'Requisito no cumplido'}
+            </span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">
+            Dado de Golpe: <strong class="text-amber-300">1d${info.hitDie}</strong> (Media fija: +${info.avgHp}) • Requisito 5e: <strong>${info.reqText}</strong>
+          </div>
+          <div class="mt-2 text-[11px] text-purple-200 bg-slate-950/80 p-2 rounded border border-slate-800">
+            <span class="text-slate-400 block text-[10px] uppercase font-bold">Desbloquea en Nivel ${nextClassLvl}:</span>
+            • ${unlockedFeatures.join('<br>• ')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+        <h4 class="font-bold text-sm text-white">Etapa 1: Elige la Clase a subir en este nivel</h4>
+        <p class="text-slate-400 mt-0.5">Puedes continuar tu progresión como <strong>Brujo (Filo Maléfico)</strong> o adquirir un nivel de <strong>Multiclase</strong> en cualquier clase cuyos requisitos de atributo cumplas según el Manual del Jugador 5e (FUE ${character.str}, DES ${character.dex}, CON ${character.con}, INT ${character.int}, SAB ${character.wis}, CAR ${character.cha}).</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        ${classCards}
+      </div>
+    `;
+  }
+
+  // --- ETAPA 2: PUNTOS DE GOLPE ---
+  else if (d.step === 2) {
+    const hpGain = computeDraftHpGain();
+    const conMod = getMod(character.con);
+    body.innerHTML = `
+      <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-4">
+        <div>
+          <h4 class="font-bold text-sm text-white">Etapa 2: Incremento de Puntos de Golpe Máximos (${clsInfo.name})</h4>
+          <p class="text-slate-400 mt-0.5">Tu Dado de Golpe para ${clsInfo.name} es <strong>1d${clsInfo.hitDie}</strong> y tu modificador actual de Constitución (CON ${character.con}) es <strong>+${conMod}</strong>.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div onclick="levelUpDraft.hpMethod='fixed'; renderLevelUpWizard();" class="p-4 rounded-xl border cursor-pointer transition ${
+            d.hpMethod === 'fixed' ? 'bg-purple-950/70 border-purple-400 ring-2 ring-purple-500' : 'bg-slate-900 border-slate-700'
+          }">
+            <div class="font-bold text-sm text-white">Opción A: Media Oficial Fija (Recomendado 5e)</div>
+            <div class="text-xs text-emerald-400 font-bold mt-1">+${clsInfo.avgHp} (Media de d${clsInfo.hitDie}) + ${conMod} (CON) = +${clsInfo.avgHp + conMod} PG</div>
+            <p class="text-[11px] text-slate-400 mt-1">Garantiza un crecimiento seguro y consistente sin riesgo de sacar 1 o 2 en el dado físico.</p>
+          </div>
+
+          <div onclick="levelUpDraft.hpMethod='manual'; renderLevelUpWizard();" class="p-4 rounded-xl border cursor-pointer transition ${
+            d.hpMethod === 'manual' ? 'bg-purple-950/70 border-purple-400 ring-2 ring-purple-500' : 'bg-slate-900 border-slate-700'
+          }">
+            <div class="font-bold text-sm text-white">Opción B: Resultado de tu Dado Físico (1d${clsInfo.hitDie})</div>
+            <div class="flex items-center gap-2 mt-2">
+              <label class="text-slate-300">Valor tirado en tu d${clsInfo.hitDie} (1 a ${clsInfo.hitDie}):</label>
+              <input type="number" min="1" max="${clsInfo.hitDie}" value="${d.hpRollValue}" onclick="event.stopPropagation();" oninput="levelUpDraft.hpMethod='manual'; levelUpDraft.hpRollValue=Number(this.value); renderLevelUpWizard();" class="w-16 bg-slate-950 border border-purple-500 rounded px-2 py-1 text-center font-black text-amber-400" />
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Introduce lo que saques en tu dado físico en la mesa; se le sumará automáticamente tu modificador de CON (+${conMod}).</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-emerald-800/60 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-slate-400 block">Previsualización de Puntos de Golpe Máximos</span>
+            <span class="text-sm font-bold text-white">Actual: ${character.hp_max} PG → Nuevo Máximo: <strong class="text-emerald-400">${character.hp_max + hpGain} PG (+${hpGain})</strong></span>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">Dados de Golpe: ${d.toTotalLevel}d${clsInfo.hitDie}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- ETAPA 3: RASGOS DE NIVEL, MEJORA DE CARACTERÍSTICA (ASI) O DOTE ---
+  else if (d.step === 3) {
+    const grantsASI = doesDraftGrantASI();
+    const unlocked = clsInfo.featuresByLevel[d.newClassLevel] || [`Progresión de ${clsInfo.name} Nivel ${d.newClassLevel}`];
+    const statOptions = [
+      { k: 'str', name: 'Fuerza (FUE)' },
+      { k: 'dex', name: 'Destreza (DES)' },
+      { k: 'con', name: 'Constitución (CON)' },
+      { k: 'int', name: 'Inteligencia (INT)' },
+      { k: 'wis', name: 'Sabiduría (SAB)' },
+      { k: 'cha', name: 'Carisma (CAR)' }
+    ];
+
+    let asiSectionHtml = '';
+    if (grantsASI) {
+      asiSectionHtml = `
+        <div class="bg-slate-950/90 border border-amber-600/60 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h5 class="text-sm font-black text-amber-400">★ ¡Mejora de Característica o Dote Desbloqueada (${clsInfo.name} Nvl ${d.newClassLevel})!</h5>
+            <div class="flex gap-2">
+              <button onclick="levelUpDraft.asiMode='stats'; renderLevelUpWizard();" class="px-3 py-1 rounded-lg text-xs font-bold ${d.asiMode === 'stats' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-300'}">+2 Puntos de Atributo</button>
+              <button onclick="levelUpDraft.asiMode='feat'; renderLevelUpWizard();" class="px-3 py-1 rounded-lg text-xs font-bold ${d.asiMode === 'feat' ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-300'}">Elegir una Dote (Feat)</button>
+            </div>
+          </div>
+
+          ${d.asiMode === 'stats' ? `
+            <div class="space-y-3 pt-2">
+              <div class="flex gap-3">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="asiSplit" ${d.asiSplit === 'double' ? 'checked' : ''} onchange="levelUpDraft.asiSplit='double'; renderLevelUpWizard();" />
+                  <span class="text-white font-semibold">+1 a dos características distintas (Ideal para subir DES 15→16 y CON 15→16)</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="asiSplit" ${d.asiSplit === 'single' ? 'checked' : ''} onchange="levelUpDraft.asiSplit='single'; renderLevelUpWizard();" />
+                  <span class="text-white font-semibold">+2 a una sola característica (Máximo 20)</span>
+                </label>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="text-slate-400 block mb-1">Primera Característica (${d.asiSplit === 'single' ? '+2' : '+1'}):</label>
+                  <select onchange="levelUpDraft.asiStat1=this.value; renderLevelUpWizard();" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold">
+                    ${statOptions.map(so => `<option value="${so.k}" ${d.asiStat1 === so.k ? 'selected' : ''} ${Number(character[so.k]) >= 20 ? 'disabled' : ''}>${so.name} (Actual: ${character[so.k]}${Number(character[so.k]) >= 20 ? ' - MÁX 20' : ''})</option>`).join('')}
+                  </select>
+                </div>
+                ${d.asiSplit === 'double' ? `
+                  <div>
+                    <label class="text-slate-400 block mb-1">Segunda Característica (+1):</label>
+                    <select onchange="levelUpDraft.asiStat2=this.value; renderLevelUpWizard();" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold">
+                      ${statOptions.map(so => `<option value="${so.k}" ${d.asiStat2 === so.k ? 'selected' : ''} ${(Number(character[so.k]) >= 20 || so.k === d.asiStat1) ? 'disabled' : ''}>${so.name} (Actual: ${character[so.k]})</option>`).join('')}
+                    </select>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-2">
+              ${FEATS_CATALOG_5E.filter(f => f.id !== 'fey_touched').map(f => {
+                const alreadyHas = (character.combat_state?.feats || []).includes(f.id);
+                const sel = d.chosenFeatId === f.id;
+                return `
+                  <div onclick="${!alreadyHas ? `levelUpDraft.chosenFeatId='${f.id}'; renderLevelUpWizard();` : ''}" class="p-3 rounded-xl border transition ${
+                    alreadyHas ? 'opacity-40 bg-slate-950 border-slate-800 cursor-not-allowed' : (sel ? 'bg-purple-950/80 border-purple-400 ring-1 ring-purple-400 cursor-pointer' : 'bg-slate-900 border-slate-700 cursor-pointer')
+                  }">
+                    <div class="font-bold text-white flex items-center justify-between">
+                      <span>${f.name}</span>
+                      ${alreadyHas ? '<span class="text-[10px] text-emerald-400">Ya adquirida</span>' : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">${f.desc}</p>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      `;
+    } else {
+      asiSectionHtml = `
+        <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 text-slate-400">
+          En <strong>${clsInfo.name} Nivel ${d.newClassLevel}</strong> no corresponde Mejora de Característica ni Dote (se otorgan en los niveles de clase 4, 8, 12, 16 y 19).
+        </div>
+      `;
+    }
+
+    body.innerHTML = `
+      <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h4 class="font-bold text-sm text-white">Etapa 3: Rasgos de Clase y Habilidades Desbloqueadas</h4>
+        <div class="space-y-2">
+          ${unlocked.map(feat => `
+            <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-800/50 text-slate-200">
+              <strong class="text-purple-300">✓ Rasgo de Nivel ${d.newClassLevel}:</strong> ${feat}
+            </div>
+          `).join('')}
+          <div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/50 text-slate-200">
+            <strong class="text-emerald-300">✓ Escalado Racial Aasimar Caído:</strong> <em>Manos Curativas</em> sube a <strong>+${d.toTotalLevel} PG</strong> (1/descanso largo) y el daño adicional de <em>Mortaja Necrótica</em> sube a <strong>+${d.toTotalLevel} necrótico por turno</strong>.
+          </div>
+        </div>
+      </div>
+      ${asiSectionHtml}
+    `;
+  }
+
+  // --- ETAPA 4: MAGIA DEL PACTO, ARCANUM MÍSTICO E INVOCACIONES SOBRENATURALES ---
+  else if (d.step === 4) {
+    const newWarlockLvl = d.chosenClass === 'Brujo'
+      ? d.newClassLevel
+      : (Number(character.combat_state?.class_levels?.Brujo) || character.level);
+    const wProg = getWarlockProgression(newWarlockLvl);
+    const arcanumLvl = getDraftArcanumLevelUnlocked();
+
+    // Conjuros elegibles para aprender y equipar en combate (hasta el nivel máximo de espacio permitido)
+    const maxSpellLvl = arcanumLvl ? arcanumLvl : wProg.slotLevel;
+    const unequippedSpells = spells.filter(s => !s.is_equipped && Number(s.level) > 0 && Number(s.level) <= wProg.slotLevel);
+    const arcanumCandidates = arcanumLvl ? spells.filter(s => Number(s.level) === arcanumLvl) : [];
+
+    body.innerHTML = `
+      <div class="space-y-4">
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+          <h4 class="font-bold text-sm text-white">Etapa 4: Invocaciones Sobrenaturales y Nuevos Conjuros (Brujo Nvl ${newWarlockLvl})</h4>
+          <p class="text-slate-400 mt-0.5">A Nivel ${newWarlockLvl} de Brujo tienes derecho a <strong>${wProg.invocations} Invocaciones Sobrenaturales activas</strong>, <strong>${wProg.slotCount} espacios de conjuro de Nivel ${wProg.slotLevel}</strong> y <strong>${wProg.spellsKnown} conjuros conocidos</strong>.</p>
+        </div>
+
+        <!-- Selección de Invocaciones Sobrenaturales -->
+        <div class="bg-slate-950/80 border border-purple-800/50 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h5 class="font-bold text-xs uppercase tracking-wider text-purple-300">Invocaciones Sobrenaturales Activas (${d.invocationsSelected.length} / ${wProg.invocations})</h5>
+            <span class="text-[11px] text-slate-400">Sus efectos se aplican automáticamente a tus ataques en la Pestaña 1</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            ${ELDRITCH_INVOCATIONS_CATALOG.map(inv => {
+              const meetsLvl = newWarlockLvl >= inv.minLevel;
+              const isSel = d.invocationsSelected.includes(inv.id);
+              return `
+                <div onclick="${meetsLvl ? `toggleDraftInvocation('${inv.id}', ${wProg.invocations})` : ''}" class="p-3 rounded-xl border transition ${
+                  !meetsLvl
+                    ? 'opacity-40 bg-slate-950 border-slate-800 cursor-not-allowed'
+                    : (isSel ? 'bg-purple-950/80 border-purple-400 ring-1 ring-purple-400 cursor-pointer' : 'bg-slate-900 border-slate-700 hover:border-purple-500 cursor-pointer')
+                }">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-white">${inv.name}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded ${meetsLvl ? (isSel ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-300') : 'bg-red-950 text-red-300'}">
+                      ${meetsLvl ? (isSel ? '✓ Activa' : 'Elegible') : `Bloqueada (${inv.reqText})`}
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-1">${inv.desc}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Selección de Nuevo Conjuro Preparado/Conocido -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2.5">
+          <label class="font-bold text-xs uppercase tracking-wider text-emerald-400 block">Aprender y Equipar un Nuevo Conjuro en Combate (Nivel 1 a ${wProg.slotLevel}):</label>
+          <select onchange="levelUpDraft.newSpellId=this.value;" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white font-semibold">
+            <option value="">— Mantener conjuros actuales (o elegir manualmente luego en el Grimorio) —</option>
+            ${unequippedSpells.map(sp => `<option value="${sp.id}" ${d.newSpellId === sp.id ? 'selected' : ''}>[Nivel ${sp.level} • ${sp.class_origin}] ${sp.name} — ${sp.damage_dice ? sp.damage_dice + ' ' + (sp.damage_type || '') : sp.casting_time}</option>`).join('')}
+          </select>
+        </div>
+
+        ${arcanumLvl ? `
+          <div class="bg-slate-950/90 border border-amber-500/60 rounded-xl p-4 space-y-2.5">
+            <label class="font-bold text-xs uppercase tracking-wider text-amber-400 block">★ Arcanum Místico de Nivel ${arcanumLvl} Desbloqueado (1 uso/descanso largo sin gastar espacios):</label>
+            <select onchange="levelUpDraft.arcanumSpellId=this.value;" class="w-full bg-slate-900 border border-amber-600/60 rounded-xl p-2.5 text-white font-bold">
+              <option value="">— Selecciona tu conjuro de Arcanum Místico de Nivel ${arcanumLvl} —</option>
+              ${arcanumCandidates.map(sp => `<option value="${sp.id}" ${d.arcanumSpellId === sp.id ? 'selected' : ''}>[Nivel ${sp.level}] ${sp.name} — ${sp.description}</option>`).join('')}
+            </select>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // --- ETAPA 5: COMPARATIVA ANTES VS DESPUÉS Y CONFIRMACIÓN ---
+  else if (d.step === 5) {
+    const oldProg = getWarlockProgression(character.level);
+    const newWarlockLvl = d.chosenClass === 'Brujo'
+      ? d.newClassLevel
+      : (Number(character.combat_state?.class_levels?.Brujo) || character.level);
+    const newProg = getWarlockProgression(newWarlockLvl);
+    const totalProg = getWarlockProgression(d.toTotalLevel);
+    const hpGain = computeDraftHpGain();
+    const chosenSpell = spells.find(s => s.id === d.newSpellId);
+    const chosenArcanum = spells.find(s => s.id === d.arcanumSpellId);
+
+    body.innerHTML = `
+      <div class="bg-slate-950/90 border border-emerald-700/60 rounded-xl p-4 space-y-4">
+        <div>
+          <h4 class="font-bold text-sm text-emerald-400">Etapa 5: Revisión de Consecuencias antes de Confirmar</h4>
+          <p class="text-slate-400 mt-0.5">Verifica todos los cambios que se aplicarán a la ficha de <strong>${character.name}</strong>. Si cancelas ahora, ningún dato será modificado.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="text-[10px] font-bold uppercase text-slate-400">Estado Actual (Nivel ${d.fromTotalLevel})</div>
+            <div>• <strong>Puntos de Golpe Máximos:</strong> ${character.hp_max} PG</div>
+            <div>• <strong>Bonificador de Competencia:</strong> +${oldProg.prof}</div>
+            <div>• <strong>Magia del Pacto:</strong> ${oldProg.slotCount} espacios de Nivel ${oldProg.slotLevel}</div>
+            <div>• <strong>Castigo Arcano:</strong> ${oldProg.smiteDice} Fuerza</div>
+            <div>• <strong>Armadura de Agathys:</strong> ${oldProg.agathysHP} PG Temp / ${oldProg.agathysHP} Frío</div>
+            <div>• <strong>Manos Curativas / Mortaja:</strong> +${d.fromTotalLevel} PG / +${d.fromTotalLevel} Necrótico</div>
+          </div>
+
+          <div class="bg-emerald-950/25 p-3.5 rounded-xl border border-emerald-700/60 space-y-1.5">
+            <div class="text-[10px] font-bold uppercase text-emerald-400">Nuevo Estado Confirmado (Nivel ${d.toTotalLevel} • +1 ${clsInfo.name})</div>
+            <div>• <strong>Puntos de Golpe Máximos:</strong> <strong class="text-emerald-400">${character.hp_max + hpGain} PG (+${hpGain})</strong></div>
+            <div>• <strong>Bonificador de Competencia:</strong> <strong class="text-emerald-400">+${totalProg.prof}</strong></div>
+            <div>• <strong>Magia del Pacto:</strong> <strong class="text-purple-300">${newProg.slotCount} espacios de Nivel ${newProg.slotLevel}</strong></div>
+            <div>• <strong>Castigo Arcano:</strong> <strong class="text-purple-300">${newProg.smiteDice} Fuerza</strong></div>
+            <div>• <strong>Armadura de Agathys:</strong> <strong class="text-cyan-300">${newProg.agathysHP} PG Temp / ${newProg.agathysHP} Frío</strong></div>
+            <div>• <strong>Manos Curativas / Mortaja:</strong> <strong class="text-emerald-400">+${d.toTotalLevel} PG / +${d.toTotalLevel} Necrótico</strong></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+          <div class="font-bold text-white">Decisiones seleccionadas para aplicar:</div>
+          <div>• <strong>Clase subida:</strong> ${clsInfo.name} (Nivel ${d.newClassLevel})</div>
+          <div>• <strong>Invocaciones Sobrenaturales Activas (${d.invocationsSelected.length}):</strong> ${d.invocationsSelected.map(id => ELDRITCH_INVOCATIONS_CATALOG.find(x => x.id === id)?.name || id).join(', ')}</div>
+          ${doesDraftGrantASI() ? `<div>• <strong>Mejora de Nivel ${d.newClassLevel}:</strong> ${d.asiMode === 'stats' ? (d.asiSplit === 'single' ? `+2 a ${d.asiStat1.toUpperCase()}` : `+1 a ${d.asiStat1.toUpperCase()} y +1 a ${d.asiStat2.toUpperCase()}`) : `Dote: ${FEATS_CATALOG_5E.find(x => x.id === d.chosenFeatId)?.name}`}</div>` : ''}
+          ${chosenSpell ? `<div>• <strong>Nuevo Conjuro Equipado en Combate:</strong> ${chosenSpell.name} (Nivel ${chosenSpell.level})</div>` : ''}
+          ${chosenArcanum ? `<div>• <strong>Arcanum Místico:</strong> ${chosenArcanum.name} (Nivel ${chosenArcanum.level})</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+  lucide.createIcons();
+}
+
+async function confirmLevelUpWizard() {
+  if (!levelUpDraft) return;
+  const d = levelUpDraft;
+  const cs = ensureProgressionData();
+  const hpGain = computeDraftHpGain();
+
+  // 1. Actualizar nivel total y desglose de niveles de clase
+  character.level = d.toTotalLevel;
+  cs.class_levels[d.chosenClass] = d.newClassLevel;
+
+  // Actualizar etiqueta de clase si hay multiclase
+  const classParts = Object.entries(cs.class_levels)
+    .filter(([_, lvl]) => Number(lvl) > 0)
+    .map(([k, lvl]) => `${DND5E_CLASSES[k]?.name || k} ${lvl}`);
+  character.class_name = classParts.join(' / ');
+
+  // 2. Aplicar Mejora de Característica (ASI) o Dote si corresponde
+  if (doesDraftGrantASI()) {
+    if (d.asiMode === 'stats') {
+      if (d.asiSplit === 'single') {
+        character[d.asiStat1] = Math.min(20, Number(character[d.asiStat1]) + 2);
+      } else {
+        character[d.asiStat1] = Math.min(20, Number(character[d.asiStat1]) + 1);
+        character[d.asiStat2] = Math.min(20, Number(character[d.asiStat2]) + 1);
+      }
+    } else if (d.asiMode === 'feat') {
+      if (!cs.feats.includes(d.chosenFeatId)) {
+        cs.feats.push(d.chosenFeatId);
+      }
+      const f = FEATS_CATALOG_5E.find(x => x.id === d.chosenFeatId);
+      if (f && f.bonusStat) {
+        character[f.bonusStat] = Math.min(20, Number(character[f.bonusStat]) + (f.bonusVal || 1));
+      }
+    }
+  }
+
+  // 3. Actualizar PG máximos y sumar el incremento a los PG actuales
+  character.hp_max = Number(character.hp_max) + hpGain;
+  character.hp_current = Math.min(character.hp_max, Number(character.hp_current) + hpGain);
+  document.getElementById('hpMax').value = character.hp_max;
+  document.getElementById('hpCurrent').value = character.hp_current;
+
+  // 4. Guardar Invocaciones Sobrenaturales y Rasgos Multiclase
+  cs.invocations_known = [...d.invocationsSelected];
+  const unlockedFeatures = DND5E_CLASSES[d.chosenClass]?.featuresByLevel?.[d.newClassLevel] || [];
+  unlockedFeatures.forEach(featText => {
+    if (!cs.multiclass_features.includes(featText)) cs.multiclass_features.push(featText);
+  });
+
+  // 5. Equipar nuevo conjuro o Arcanum Místico si fueron seleccionados
+  if (d.newSpellId) {
+    const sp = spells.find(s => s.id === d.newSpellId);
+    if (sp) {
+      sp.is_equipped = true;
+      if (isSupabaseConnected && supabaseClient) {
+        await supabaseClient.from('character_spells').update({ is_equipped: true }).eq('id', sp.id);
+      }
+    }
+  }
+
+  const arcLvl = getDraftArcanumLevelUnlocked();
+  if (arcLvl && d.arcanumSpellId) {
+    const arcSp = spells.find(s => s.id === d.arcanumSpellId);
+    if (arcSp) {
+      cs.arcanum[arcLvl] = arcSp.name;
+      arcSp.is_equipped = true;
+      if (isSupabaseConnected && supabaseClient) {
+        await supabaseClient.from('character_spells').update({ is_equipped: true }).eq('id', arcSp.id);
+      }
+    }
+  }
+
+  // Cerrar asistente y persistir todo el estado
+  document.getElementById('levelUpModal').classList.add('hidden');
+  levelUpDraft = null;
+
+  await addCombatLog(`★ SUBIDA DE NIVEL COMPLETADA: Lior Kurogane alcanzó el Nivel ${character.level} (${character.class_name}) • PG Máx +${hpGain} (Total ${character.hp_max} PG).`);
+  await saveCharacterCore();
 }

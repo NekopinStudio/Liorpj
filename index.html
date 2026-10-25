@@ -54,11 +54,15 @@
               <input id="charNameInput" type="text" onchange="saveCharacterCore()" class="bg-transparent text-lg font-black tracking-wide text-white border-b border-transparent hover:border-slate-700 focus:border-purple-500 focus:outline-none w-40" value="Lior Kurogane" />
               <span class="text-xs px-2 py-0.5 rounded bg-purple-950/90 text-purple-300 border border-purple-700/50 font-semibold">Aasimar Caído</span>
             </div>
-            <div class="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-              <span>Brujo (Filo Maléfico) • Nivel:</span>
-              <select id="levelSelect" onchange="updateLevel(this.value)" class="bg-slate-900 text-amber-400 font-bold border border-slate-700 rounded px-1.5 py-0.5 focus:outline-none focus:border-purple-500">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
+              <span id="classSummaryLabel" class="font-semibold text-slate-300">Brujo (Filo Maléfico)</span>
+              <span>• Nivel Total:</span>
+              <select id="levelSelect" onchange="updateLevel(this.value)" title="Selecciona un nivel superior para abrir el Asistente de Subida de Nivel" class="bg-slate-900 text-amber-400 font-bold border border-slate-700 rounded px-1.5 py-0.5 focus:outline-none focus:border-purple-500">
                 <!-- Generado 1 a 20 -->
               </select>
+              <button onclick="openLevelUpWizard()" id="btnOpenLevelUp" class="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-600 to-purple-700 hover:from-amber-500 hover:to-purple-600 text-white font-bold text-[11px] shadow flex items-center gap-1 transition">
+                <i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i> Subir de Nivel
+              </button>
               <span id="profBadge" class="text-emerald-400 font-bold ml-1">Comp. +3</span>
             </div>
           </div>
@@ -279,6 +283,10 @@
           <button onclick="executeCastigoArcano()" class="px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow-lg transition flex items-center gap-1.5 shrink-0">
             <i data-lucide="flame" class="w-4 h-4"></i> Activar Castigo Arcano (+<span id="smiteDiceBtn">4d8</span> Fuerza + Derribo)
           </button>
+        </div>
+        <!-- Rasgos, Invocaciones Sobrenaturales, Dotes y Arcanum Místico Activos -->
+        <div id="activeProgressionFeaturesBar" class="pt-2.5 border-t border-purple-800/40 flex flex-wrap items-center gap-2 text-xs">
+          <!-- Renderizado dinámicamente por app.js -->
         </div>
       </div>
 
@@ -524,6 +532,55 @@
         <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">Cancelar</button>
         <button id="modalSaveBtn" class="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">Guardar Cambios</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL ASISTENTE GUIADO DE SUBIDA DE NIVEL (D&D 5E) -->
+  <div id="levelUpModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-panel border border-purple-600/60 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 my-8 max-h-[92vh] flex flex-col">
+      
+      <!-- Cabecera del Asistente -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3 shrink-0">
+        <div>
+          <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-700">
+            Progresión Oficial D&D 5e • Asistente Guiado
+          </span>
+          <h3 id="lvlUpModalTitle" class="text-lg font-black text-white mt-1">Subida de Nivel: Nivel 6 → Nivel 7</h3>
+        </div>
+        <button onclick="cancelLevelUpWizard()" class="text-slate-400 hover:text-white p-1" title="Cancelar sin aplicar cambios">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Indicador de Etapas (Stepper) -->
+      <div id="lvlUpStepper" class="grid grid-cols-5 gap-2 text-[11px] font-bold shrink-0">
+        <!-- Generado dinámicamente por app.js -->
+      </div>
+
+      <!-- Cuerpo Dinámico del Paso Actual -->
+      <div id="lvlUpStepBody" class="space-y-4 overflow-y-auto pr-1 flex-1 text-xs">
+        <!-- Contenido del paso actual -->
+      </div>
+
+      <!-- Pie del Modal con Navegación Segura y Confirmación -->
+      <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-800 shrink-0">
+        <button onclick="cancelLevelUpWizard()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-red-950/80 text-slate-300 hover:text-red-200 border border-slate-700 text-xs font-semibold transition">
+          Cancelar (Sin cambios)
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="lvlUpPrevBtn" onclick="stepLevelUpWizard(-1)" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition">
+            ← Anterior
+          </button>
+          <button id="lvlUpNextBtn" onclick="stepLevelUpWizard(1)" class="px-5 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow-lg transition">
+            Siguiente Etapa →
+          </button>
+          <button id="lvlUpConfirmBtn" onclick="confirmLevelUpWizard()" class="hidden px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-lg transition flex items-center gap-1.5">
+            ✓ Confirmar y Aplicar Subida de Nivel
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
