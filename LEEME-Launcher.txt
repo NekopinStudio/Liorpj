@@ -1,0 +1,19 @@
+ABRIR LA FICHA DE LIOR
+
+Haz doble clic en Abrir-Lior.cmd dentro de Liorpj.
+Abre la version local del proyecto en tu navegador predeterminado.
+Si ya esta funcionando, reutiliza el servidor en lugar de crear otro.
+El servidor funciona en segundo plano y solo admite conexiones de este equipo.
+
+Requisito: Node.js (ya disponible en este equipo).
+Conserva Abrir-Lior.cmd, Abrir-Lior.ps1 y tools/lior-launcher.cjs junto al proyecto.
+
+Direccion: http://127.0.0.1:4182/
+
+Esta es la ficha real: sus acciones conservan la sincronizacion con Supabase.
+El launcher no es una copia de prueba ni cambia conjuros o recursos al iniciarse
+por si mismo. Al abrir el navegador se ejecuta la inicializacion normal de la ficha.
+Se necesita internet para Supabase y las bibliotecas externas de la pagina.
+No publica cambios en Vercel ni instala nada.
+
+Para usarlo desde el escritorio, crea un acceso directo a Abrir-Lior.cmd.
